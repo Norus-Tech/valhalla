@@ -188,13 +188,15 @@ public:
 
   /**
    * Process Tagged values for the edge.
-   * @param  edgeindex      The edgeindex we are processing.
-   * @param  names          The names to add.
-   * @param  name_count     The current name count.
-   * @param  name_info_list The list to add the name infos
+   * @param  edgeindex         The edgeindex we are processing.
+   * @param  names             The names to add.
+   * @param  custom_attributes The custom attributes to add.
+   * @param  name_count        The current name count.
+   * @param  name_info_list    The list to add the name infos
    */
   void ProcessTaggedValues(const uint32_t edgeindex,
                            const std::vector<std::string>& names,
+                           const std::unordered_map<std::string,std::string>& custom_attributes,
                            size_t& name_count,
                            std::vector<NameInfo>& name_info_list);
 
@@ -236,6 +238,7 @@ public:
                        const std::vector<std::string>& names,
                        const std::vector<std::string>& tagged_values,
                        const std::vector<std::string>& linguistics,
+                       const std::unordered_map<std::string,std::string>& custom_attributes,
                        const uint16_t types,
                        bool& added,
                        bool diff_names = false);
@@ -277,6 +280,7 @@ public:
                        const std::vector<std::string>& names,
                        const std::vector<std::string>& tagged_values,
                        const std::vector<std::string>& linguistics,
+                       const std::unordered_map<std::string,std::string>& custom_attributes,
                        const uint16_t types,
                        bool& added,
                        bool diff_names = false);

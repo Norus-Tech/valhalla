@@ -395,6 +395,19 @@ public:
   }
 
   /**
+   * Allow custom pruning of edges based on possibly custom data and custom filters defined either
+   * in config or in the request
+   *
+   * @param edge           the edge that should or shouldnt be allowed
+   * @param tile           the tile which contains the edge (for traffic lookup)
+   * @return true if the edge should be removed as a candidate
+   */
+  inline virtual bool isFiltered(const baldr::DirectedEdge* edge,
+                                 const graph_tile_ptr&) const {
+    return false;
+  }
+
+  /**
    * Get the cost to traverse the specified directed edge using a transit
    * departure (schedule based edge traversal). Cost includes
    * the time (seconds) to traverse the edge.

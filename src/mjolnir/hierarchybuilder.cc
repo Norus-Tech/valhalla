@@ -305,7 +305,8 @@ void FormTilesInNewLevel(GraphReader& reader,
           tilebuilder->AddEdgeInfo(w, nodea, nodeb, edgeinfo.wayid(), edgeinfo.mean_elevation(),
                                    edgeinfo.bike_network(), edgeinfo.speed_limit(), encoded_shape,
                                    edgeinfo.GetNames(), edgeinfo.GetTaggedValues(),
-                                   edgeinfo.GetLinguisticTaggedValues(), edgeinfo.GetTypes(), added,
+                                   edgeinfo.GetLinguisticTaggedValues(),
+                                   edgeinfo.GetCustomAttributes(), edgeinfo.GetTypes(), added,
                                    diff_names);
 
       newedge.set_edgeinfo_offset(edge_info_offset);

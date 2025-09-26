@@ -353,6 +353,7 @@ message TaggedValue {
     kLandmark = 6;
     kConditionalSpeedLimits = 7;
     kLevels = 8;
+    kCustomAttrs = 91;
     kTunnel = 49;
     kBridge = 50;
   }

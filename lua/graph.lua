@@ -1944,6 +1944,15 @@ function filter_tags_generic(kv)
     kv["emergency_backward"] = "false"
   end
 
+  -- custom attributes
+  -- kv["custom_attributes"] = {}
+  -- for k,v in pairs(custom_attributes) do
+  --    if kv[k] ~= nil then
+  --       print(k+ ": "+kv[k])
+  --       kv["custom_attributes"][k] = kv[k]
+  --    end
+  -- end
+
   return 0
 end
 
@@ -2294,6 +2303,18 @@ function ways_proc (kv, nokeys)
 
   --let the caller know if its a keeper or not and give back the modified tags
   --also tell it whether or not its a polygon or road
+
+  -- custom attributes
+  local custom_attrs = {}
+  for k,v in pairs(custom_attributes) do
+     if kv[k] ~= nil then
+        custom_attrs[#custom_attrs+1] = k .. "\t" .. tostring(kv[k])
+     end
+  end
+  local attrs = table.concat(custom_attrs, "\n")
+  if string.len(attrs) > 0 then
+     kv["custom_attributes"] = attrs
+  end
   return filter, kv, 0, 0
 end
 
@@ -2383,6 +2404,15 @@ function rels_proc (kv, nokeys)
        return 0, kv
      end
   end
+
+  -- custom attributes
+  -- kv["custom_attributes"] = {}
+  -- for k,v in pairs(custom_attributes) do
+  --    if kv[k] ~= nil then
+  --       print(k+ ": "+kv[k])
+  --       kv["custom_attributes"][k] = kv[k]
+  --    end
+  -- end
 
   return 1, kv
 end

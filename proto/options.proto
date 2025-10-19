@@ -343,6 +343,16 @@ message Costing {
     bool exclude_ferries = 91;
     map<uint32, HierarchyLimits> hierarchy_limits = 92;
     bool ignore_construction = 93;
+    map<string, string> filter_args = 94;
+  }
+
+  message Filter {
+    string tag = 1;
+    // for nodes
+    oneof has_data {
+      string data = 2;
+    }
+    repeated Filter children = 3;
   }
 
   oneof has_options {
@@ -356,6 +366,10 @@ message Costing {
   // this is used internally only, setting it in your request will have no effect
   oneof has_filter_closures {
     bool filter_closures = 4;
+  }
+
+  oneof has_filter {
+    Filter filter = 5;
   }
 }
 
@@ -526,4 +540,8 @@ message Options {
                                                                    // ensuring that each edge appears in the output only once. [default = false]
   bool admin_crossings = 59;                                       // Include administrative boundary crossings
   bool turn_lanes = 60;                                            // Include turn lane information into Valhalla serializer response.
+  oneof has_filter {
+    Costing.Filter filter = 61;
+  }
+  map<string, string> filter_args = 62;
 }

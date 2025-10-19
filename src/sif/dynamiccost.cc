@@ -4,6 +4,7 @@
 #include "proto_conversions.h"
 #include "sif/autocost.h"
 #include "sif/bicyclecost.h"
+#include "sif/costfilter.h"
 #include "sif/hierarchylimits.h"
 #include "sif/motorcyclecost.h"
 #include "sif/motorscootercost.h"
@@ -11,9 +12,8 @@
 #include "sif/pedestriancost.h"
 #include "sif/transitcost.h"
 #include "sif/truckcost.h"
+#include "config.h"
 #include "worker.h"
-
-#include <boost/optional.hpp>
 
 using namespace valhalla::baldr;
 
@@ -160,11 +160,22 @@ DynamicCost::DynamicCost(const Costing& costing,
       ignore_construction_(costing.options().ignore_construction()),
       top_speed_(costing.options().top_speed()), fixed_speed_(costing.options().fixed_speed()),
       filter_closures_(ignore_closures_ ? false : costing.filter_closures()),
-      penalize_uturns_(penalize_uturns) {
+      penalize_uturns_(penalize_uturns), filter_(costing) {
 
   // set user supplied hierarchy limits if present, fill the other
   // required levels up with sentinel values (clamping to config supplied limits/defaults is handled
   // by thor worker)
+
+  const auto name = valhalla::Costing_Enum_Name(costing.type());
+  LOG_INFO ("filter:\n" + std::to_string(filter_));
+
+  // if (costing.has_filter()) {
+  //   LOG_INFO("Filter for '" + name + "': " + costing.filter().SerializeAsString());
+  //   CostFilter filter(costing.filter());
+  // } else {
+  //   LOG_WARN("No filter for '" + name + "'");
+  // }
+
   for (const auto& level : TileHierarchy::levels()) {
     const auto& res = costing.options().hierarchy_limits().find(level.level);
     if (res == costing.options().hierarchy_limits().end()) {

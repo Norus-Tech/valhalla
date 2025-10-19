@@ -17,6 +17,7 @@
 #include <valhalla/sif/costconstants.h>
 #include <valhalla/sif/edgelabel.h>
 #include <valhalla/thor/edgestatus.h>
+#include <valhalla/sif/costfilter.h>
 
 #include <cstdint>
 #include <memory>
@@ -403,8 +404,9 @@ public:
    * @return true if the edge should be removed as a candidate
    */
   inline virtual bool isFiltered(const baldr::DirectedEdge* edge,
-                                 const graph_tile_ptr&) const {
-    return false;
+                                 const graph_tile_ptr& tile) const {
+    auto attrs = tile->edgeinfo(edge).GetCustomAttributes();
+    return !filter_(edge, attrs);
   }
 
   /**
@@ -1152,6 +1154,9 @@ protected:
   bool include_hot_{false};
   bool include_hov2_{false};
   bool include_hov3_{false};
+
+  // filtering
+  const sif::CostFilter filter_;
 
   /**
    * Get the base transition costs (and ferry factor) from the costing options.

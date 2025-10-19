@@ -6,6 +6,7 @@
 #include <valhalla/midgard/pointll.h>
 #include <valhalla/proto/options.pb.h>
 #include <valhalla/sif/costfactory.h>
+#include <valhalla/sif/costfilter.h>
 #include <valhalla/skadi/sample.h>
 #include <valhalla/worker.h>
 
@@ -49,6 +50,7 @@ protected:
                            110});
   void parse_trace(Api& request);
   void parse_costing(Api& request, bool allow_none = false);
+  void parse_filters(const boost::property_tree::ptree&, Options&);
   void locations_from_shape(Api& request);
   void check_hierarchy_distance(Api& request);
 

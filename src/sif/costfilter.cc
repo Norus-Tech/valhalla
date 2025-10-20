@@ -10,24 +10,9 @@ namespace sif {
 
 CostFilterNode::CostFilterNode(const Costing_Filter& filter)
   : tag_(filter.tag()),
+    literal_(filter.has_data()? filter.data(): ""),
     handler_(get_filter_handler(filter)),
-    args_(filter.children().begin(), filter.children().end()) {
-  if (filter.has_data()) {    // node, tag shouldn't matter
-    literal_ = filter.data();
-    return;
-  }
-  // const auto& tag = filter.tag();
-  // const auto& handler = filter_handlers.find(tag);
-  // if (handler == filter_handlers.end()) {
-  //   LOG_WARN("No filter handler for '" + tag + "'");
-  //   // TODO: throw
-  //   return;
-  // }
-  // for (const auto& child: filter.children()) {
-  //   // CostFilterNode arg(child);
-  //   args_.emplace_back(child);
-  // }
-}
+    args_(filter.children().begin(), filter.children().end()) {}
 
 CostFilterNode::CostFilterNode (const FilterFactory& factory) : handler_(factory) {}
 
@@ -35,21 +20,19 @@ bool CostFilterNode::operator() (const Costing_Options& options,
                                  CostFilterArg& result,
                                  const DirectedEdge* edge,
                                  const CustomAttributes& attrs) const {
-  // LOG_INFO("Calling " + to_string());
   const auto f = handler_(options, this);
-  // LOG_INFO("Ran outer");
   f(result, edge, args_, attrs);
-  // LOG_INFO("Ran inner");
+  LOG_DEBUG(to_string() + ": " + (result.value.empty() ? "()" : result.value));
   return result.value != "";
 }
 
 bool CostFilterNode::operator() (const Costing_Options& options,
                                  const DirectedEdge* edge,
                                  const CustomAttributes& attrs) const {
-  LOG_INFO ("Calling " + to_string());
   CostFilterArg result;
   const auto f = handler_(options, this);
   f(result, edge, args_, attrs);
+  LOG_DEBUG(to_string() + ": " + (result.value.empty() ? "()" : result.value));
   return result.value != "";
 }
 
@@ -60,11 +43,6 @@ std::string CostFilterNode::to_string() const {
 std::string CostFilterNode::to_string(int indent) const {
   std::stringstream ss;
   ss << "{" << tag_;
-  // auto name = std::find_if(sif::filter_handlers.begin(), sif::filter_handlers.end(),
-  //                          [this](FilterFactory& f) { return &f == &handler_; });
-  // if (name != filter_handlers.cend ()) {
-  //   ss << name->first;
-  // }
   if (tag_ == "literal") {
     ss << " " << literal_;
   } else {
@@ -84,20 +62,162 @@ std::string CostFilterNode::to_string(int indent) const {
   return ss.str();
 }
 
-// CostFilter::CostFilter() : root_(Filters::True) {}
-
 FilterFactory get_filter_handler(const Costing_Filter& filter) {
+  static FilterFactory True = [](const Costing_Options& /*options*/, const CostFilterNode* /*self*/)  {
+    return [](CostFilterArg& result,
+              const DirectedEdge*  /*edge*/,
+              const std::vector<CostFilterNode>&  /*args*/,
+              const CustomAttributes& /*attrs*/) {
+      result.value = "1";
+    };
+  };
+
+  static FilterFactory False = [](const Costing_Options& /*options*/, const CostFilterNode* /*self*/) {
+    return [](CostFilterArg& result,
+              const DirectedEdge*  /*edge*/,
+              const std::vector<CostFilterNode>&  /*args*/,
+              const CustomAttributes& /*attrs*/) {
+      result.value = "";
+    };
+  };
+
+  static FilterFactory Literal = [](const Costing_Options& /*options*/, const CostFilterNode* self) {
+    return [self](CostFilterArg& result,
+                   const DirectedEdge* /*edge*/,
+                   const std::vector<CostFilterNode>& /*args*/,
+                   const CustomAttributes& /*attrs*/) {
+      result.value = self->literal();
+      // result.value = "";
+    };
+  };
+
+  static FilterFactory Or = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
+    return [&options](CostFilterArg& result,
+                      const DirectedEdge* edge,
+                      const std::vector<CostFilterNode>& args,
+                      const CustomAttributes& attrs) {
+      for (const auto &arg: args) {
+        arg(options, result, edge, attrs);
+        if (!result.value.empty()) return;
+      }
+    };
+  };
+
+  static FilterFactory And = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
+    return [&options](CostFilterArg& result,
+                      const DirectedEdge* edge,
+                      const std::vector<CostFilterNode>& args,
+                      const CustomAttributes& attrs) {
+      for (const auto &arg: args) {
+        arg(options, result, edge, attrs);
+        if (result.value.empty()) return;
+      }
+    };
+  };
+
+  static FilterFactory Not = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
+    return [&options](CostFilterArg& result,
+                      const DirectedEdge* edge,
+                      const std::vector<CostFilterNode>& args,
+                      const CustomAttributes& attrs) {
+      if (!args.size()) {
+        // TODO:error or set result "null"
+        result.value = "";
+        return;
+      }
+      args[0](options, result, edge, attrs);
+      result.value = result.value.empty () ? "1" : "";
+    };
+  };
+
+  static FilterFactory Eq = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
+    return [&options](CostFilterArg& result,
+                      const DirectedEdge* edge,
+                      const std::vector<CostFilterNode>& args,
+                      const CustomAttributes& attrs) {
+      if (!args.size()) return; // TODO:error or set result "null"
+      args[0](options, result, edge, attrs);
+      const auto value = result.value;
+      for (size_t i=1; i < args.size(); ++i) {
+        args[i](options, result, edge, attrs);
+        if (result.value != value) {
+          result.value = "";
+          return;
+        }
+      }
+    };
+  };
+
+  static FilterFactory Request = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
+    return [&options](CostFilterArg& result,
+                      const DirectedEdge* edge,
+                      const std::vector<CostFilterNode>& args,
+                      const CustomAttributes& attrs) {
+      if (!args.size()) {
+        // TODO:error or set result "null"
+        result.value = "";
+        return;
+      }
+      // get key
+      args[0](options, result, edge, attrs);
+      if (result.value.empty()) {
+        // TODO:error?
+        return;
+      }
+      for (const auto &kv: options.filter_args()) {
+        if (kv.first == result.value) {
+          result.value = kv.second;
+          return;
+        }
+      }
+      // TODO:error?
+      result.value = "";
+    };
+  };
+
+  static FilterFactory Get = [](const Costing_Options&  options, const CostFilterNode*  /*self*/) {
+    return [&options](CostFilterArg& result,
+                      const DirectedEdge* edge,
+                      const std::vector<CostFilterNode>& args,
+                      const CustomAttributes& attrs) {
+      if (!args.size()) {
+        // TODO:error or set result "null"
+        result.value = "";
+        return;
+      }
+      args[0](options, result, edge, attrs);
+      if (result.value.empty()) {
+        // TODO:error?
+        return;
+      }
+      auto value = attrs.find(result.value);
+      result.value = (value == attrs.cend() ? "" : value->second);
+    };
+  };
+
+  static std::unordered_map<std::string, FilterFactory> filter_handlers = {
+    {"true",    True},
+    {"false",   False},
+    {"literal", Literal},
+    {"or",      Or},
+    {"and",     And},
+    {"not",     Not},
+    {"!",       Not},
+    {"==",      Eq},
+    {"eq",      Eq},
+    {"request", Request},
+    {"get",     Get},
+  };
 
   if (filter.has_data()) {    // node, tag shouldn't matter
-    return Filters::Literal;
+    return Literal;
   }
   const auto& tag = filter.tag();
-  // LOG_INFO("tag: " + tag);
   const auto& handler = filter_handlers.find(tag);
   if (handler == filter_handlers.cend()) {
     LOG_WARN("No filter handler for '" + tag + "'");
     // TODO: throw
-    return Filters::True;
+    return True;
   }
   return handler->second;;
 }

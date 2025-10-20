@@ -407,16 +407,15 @@ public:
                                  const graph_tile_ptr& tile) const {
     try {
       auto attrs = tile->edgeinfo(edge).GetCustomAttributes();
-
-      std::stringstream ss;
-      for (const auto& kv : attrs) {
-        ss << kv.first << ": " << kv.second << ",";
-      }
-      LOG_INFO("Edge " + std::to_string(edge->endnode()) + " attrs:{" + ss.str() + "}");
-
-      LOG_INFO("Filtering with:\n" + std::to_string (filter_));
+      LOG_DEBUG("Edge " + std::to_string(edge->endnode()) + " attrs:{" + ([](auto& attrs){
+        std::stringstream ss;
+        for (const auto& kv : attrs) {
+          ss << kv.first << ": " << kv.second << ",";
+        }
+        return ss.str();
+      })(attrs) + "}\nFiltering with:\n" + std::to_string (filter_));
       const auto filtered = !filter_(edge, attrs);
-      LOG_INFO("Edge " + std::to_string(edge->endnode()) + " filtered: " + std::to_string (filtered));
+      LOG_DEBUG("Edge " + std::to_string(edge->endnode()) + " filtered: " + std::to_string(filtered));
       return filtered;
     } catch (std::runtime_error& rte) {
       std::cerr << "error getting edge attrs: " << rte.what() << "\n";

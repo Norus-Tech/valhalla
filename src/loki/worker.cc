@@ -79,49 +79,6 @@ void loki_worker_t::parse_locations(google::protobuf::RepeatedPtrField<valhalla:
   }
 }
 
-// void loki_worker_t::parse_filters(const boost::property_tree::ptree& config, Options& options) {
-//   LOG_INFO("parse_filters()");
-//   auto cost_type = options.costing_type();
-//   Costing_Filter* filter;
-//   Costing_Filter* all_filter = sif::CostFilter::ToPBF(config, "all");
-
-//   if (options.has_filter()) {
-//     filter = options.mutable_filter();
-//   } else {
-//     filter = sif::CostFilter::ToPBF(config, cost_type);
-//   }
-//   if (!options.costings_size()) return;
-//   for (auto &kv: *options.mutable_costings()) {
-//     const auto name = sif::kCostingNameMapping.find(static_cast<Costing_Type>(kv.first))->second;
-//     // if (name == sif::kCostingNameMapping.end()) {
-//     //   // TODO:error
-//     //   name = "";
-//     // }
-//     if (kv.second.has_filter()) {
-//       LOG_INFO("Cost filter for '" + name + " supplied in request");
-//       continue;
-//     }
-//     if (kv.first == cost_type && filter != nullptr) {
-//       LOG_INFO("Setting found cost filter for matching costing: " + name);
-//       kv.second.set_allocated_filter(filter);
-//     } else {
-//       auto* cost_filter = sif::CostFilter::ToPBF(config, name);
-//       if (cost_filter != nullptr) {
-//         LOG_INFO("Setting found cost filter: " + name);
-//         kv.second.set_allocated_filter(cost_filter);
-//       } else if (all_filter != nullptr) {
-//         LOG_INFO("Setting default cost filter: " + name);
-//         kv.second.set_allocated_filter(all_filter);
-//       }
-//     }
-//     if (kv.second.has_filter()) {
-//       LOG_WARN("Parsed filter for '" + name + "'");
-//     } else {
-//       LOG_WARN("Costing '" + name + "' has no filter");
-//     }
-//   }
-// }
-
 void loki_worker_t::parse_costing(Api& api, bool allow_none) {
   auto& options = *api.mutable_options();
   // using the costing we can determine what type of edge filtering to use
@@ -146,7 +103,7 @@ void loki_worker_t::parse_costing(Api& api, bool allow_none) {
       add_warning(api, 208);
     }
   }
-  CostFilter::parse_filters(config, options);
+  CostFilter::ParseFilters(config, options);
   for (auto &kv: *options.mutable_costings()) {
     const auto& name = Costing_Enum_Name(options.costing_type());
     if (!kv.second.has_filter()) {

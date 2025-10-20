@@ -521,9 +521,8 @@ int main(int argc, char* argv[]) {
   valhalla::Api request;
   valhalla::ParseApi(json_str, valhalla::Options::route, request);
 
-  auto *mutable_options = request.mutable_options();
   // construct custom filter // TODO: put this where it belongs
-  CostFilter::parse_filters(config, *mutable_options);
+  CostFilter::ParseFilters(config, *request.mutable_options());
 
   const auto& options = request.options();
 

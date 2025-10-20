@@ -162,25 +162,19 @@ DynamicCost::DynamicCost(const Costing& costing,
       filter_closures_(ignore_closures_ ? false : costing.filter_closures()),
       penalize_uturns_(penalize_uturns), filter_(costing) {
 
+  // check runtime filter
+  LOG_DEBUG ("filter:\n" + std::to_string(filter_));
+  LOG_DEBUG("costing filter_args: {" + ([](auto& args){
+    std::stringstream ss;
+    for (const auto& kv : args) {
+      ss << kv.first << ": " << kv.second << ",";
+    }
+    return ss.str();
+  })(costing.options().filter_args()) + "}");
+
   // set user supplied hierarchy limits if present, fill the other
   // required levels up with sentinel values (clamping to config supplied limits/defaults is handled
   // by thor worker)
-
-  const auto name = valhalla::Costing_Enum_Name(costing.type());
-  LOG_INFO ("filter:\n" + std::to_string(filter_));
-  std::stringstream ss;
-  for (const auto& kv : costing.options().filter_args()) {
-    ss << kv.first << ": " << kv.second << ",";
-  }
-  LOG_INFO("costing filter_args:{" + ss.str() + "}");
-
-  // if (costing.has_filter()) {
-  //   LOG_INFO("Filter for '" + name + "': " + costing.filter().SerializeAsString());
-  //   CostFilter filter(costing.filter());
-  // } else {
-  //   LOG_WARN("No filter for '" + name + "'");
-  // }
-
   for (const auto& level : TileHierarchy::levels()) {
     const auto& res = costing.options().hierarchy_limits().find(level.level);
     if (res == costing.options().hierarchy_limits().end()) {

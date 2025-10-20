@@ -11,6 +11,8 @@
 #include <valhalla/thor/pathalgorithm.h>
 #include <valhalla/thor/pathinfo.h>
 
+#include <boost/property_tree/ptree.hpp>
+
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -78,8 +80,8 @@ protected:
   AStarHeuristic bicycle_astarheuristic_;
 
   // Current costing mode
-  std::shared_ptr<sif::DynamicCost> pedestrian_costing_;
-  std::shared_ptr<sif::DynamicCost> bicycle_costing_;
+  sif::cost_ptr_t pedestrian_costing_;
+  sif::cost_ptr_t bicycle_costing_;
 
   // Vector of edge labels (requires access by index).
   std::vector<sif::BDEdgeLabel> edgelabels_;

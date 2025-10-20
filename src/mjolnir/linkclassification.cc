@@ -1,9 +1,14 @@
-#include "baldr/json.h"
 #include "midgard/util.h"
 #include "mjolnir/node_expander.h"
 #include "mjolnir/osmdata.h"
 #include "mjolnir/util.h"
 #include "scoped_timer.h"
+
+#ifdef LOGGING_LEVEL_DEBUG
+#include "baldr/json.h"
+
+#include <sstream>
+#endif
 
 #include <optional>
 #include <queue>
@@ -11,6 +16,7 @@
 #include <vector>
 
 using namespace valhalla::baldr;
+using namespace valhalla::midgard;
 
 namespace valhalla {
 namespace mjolnir {

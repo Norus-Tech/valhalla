@@ -3,6 +3,7 @@
 
 #include <valhalla/baldr/attributes_controller.h>
 #include <valhalla/baldr/graphreader.h>
+#include <valhalla/exceptions.h>
 #include <valhalla/meili/map_matcher_factory.h>
 #include <valhalla/meili/match_result.h>
 #include <valhalla/proto/options.pb.h>
@@ -19,7 +20,7 @@
 #include <valhalla/thor/unidirectional_astar.h>
 #include <valhalla/worker.h>
 
-#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
 
 #include <tuple>
 #include <vector>

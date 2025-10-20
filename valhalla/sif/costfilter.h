@@ -83,7 +83,7 @@ protected:
 class CostFilter {
 public:
   // default filter just returns true (does nothing)
-  CostFilter();
+  CostFilter() = delete;
 
   CostFilter(const Costing& costing) : options_(&costing.options()), root_(costing.filter()) {}
 
@@ -97,7 +97,7 @@ public:
 
   std::string to_string() const {
     return root_.to_string();
-}
+  }
 
   static Costing_Filter* ToPBF(const boost::property_tree::ptree& config, Costing_Type type) {
     return ToPBF(config, valhalla::Costing_Enum_Name(type));
@@ -124,7 +124,7 @@ public:
       // TODO: error
       return;
     }
-    LOG_INFO("topbf filter: " + iter->first + ", " + iter->second.data());
+    // LOG_INFO("topbf filter: " + iter->first + ", " + iter->second.data());
     filter->set_tag(iter->second.data());
     std::advance(iter, 1);
 
@@ -137,7 +137,7 @@ public:
     // }
 
     for(; iter != end; iter++) {
-      LOG_INFO("topbf iter: " + iter->first + ", " + iter->second.data());
+      // LOG_INFO("topbf iter: " + iter->first + ", " + iter->second.data());
       const auto value = iter->second.data();
       auto* child = filter->mutable_children()->Add();
       // auto value = expression.get_optional<std::string>(iter->first);
@@ -150,6 +150,68 @@ public:
       ToPBF(iter->second, child);
     }
   }
+
+  static void parse_filters(const boost::property_tree::ptree& config, Options& options) {
+    LOG_INFO("parse_filters()");
+    auto cost_type = options.costing_type();
+    auto args = options.filter_args();
+    Costing_Filter* filter;
+    Costing_Filter* all_filter = sif::CostFilter::ToPBF(config, "all");
+
+    std::stringstream ss;
+    for (const auto& kv : args) {
+      ss << kv.first << ": " << kv.second << ",";
+    }
+    LOG_INFO("filter_args:{" + ss.str() + "}");
+
+    auto copy_args = [&args](Costing& costing) {
+      if (!args.empty() && costing.options().filter_args().empty()) {
+        auto& to_args = *costing.mutable_options()->mutable_filter_args();
+        for (const auto& kv: args) {
+          to_args[kv.first] = kv.second;
+        }
+      }
+    };
+    if (options.has_filter()) {
+      filter = options.mutable_filter();
+    } else {
+      filter = sif::CostFilter::ToPBF(config, cost_type);
+    }
+    if (!options.costings_size()) return;
+    for (auto &kv: *options.mutable_costings()) {
+      const auto name = sif::kCostingNameMapping.find(static_cast<Costing_Type>(kv.first))->second;
+      // if (name == sif::kCostingNameMapping.end()) {
+      //   // TODO:error
+      //   name = "";
+      // }
+      if (kv.second.has_filter()) {
+        LOG_INFO("Cost filter for '" + name + " supplied in request");
+        continue;
+      }
+      if (kv.first == cost_type && filter != nullptr) {
+        LOG_INFO("Setting found cost filter for matching costing: " + name);
+        kv.second.set_allocated_filter(filter);
+        copy_args(kv.second);
+      } else {
+        auto* cost_filter = sif::CostFilter::ToPBF(config, name);
+        if (cost_filter != nullptr) {
+          LOG_INFO("Setting found cost filter: " + name);
+          kv.second.set_allocated_filter(cost_filter);
+          copy_args(kv.second);
+        } else if (all_filter != nullptr) {
+          LOG_INFO("Setting default cost filter: " + name);
+          kv.second.set_allocated_filter(all_filter);
+          copy_args(kv.second);
+        }
+      }
+      if (kv.second.has_filter()) {
+        LOG_WARN("Parsed filter for '" + name + "'");
+      } else {
+        LOG_WARN("Costing '" + name + "' has no filter");
+      }
+    }
+  }
+
 protected:
   const Costing_Options* options_;
   const CostFilterNode root_;
@@ -176,23 +238,27 @@ struct Filters {
   }
 
   static FilterHandler Literal (const Costing_Options& /*options*/, const CostFilterNode* self) {
-    return[self](CostFilterArg& result,
-                 const DirectedEdge* /*edge*/,
-                 const std::vector<CostFilterNode>& /*args*/,
-                 const CustomAttributes& /*attrs*/) {
+    // LOG_INFO("returning literal inner");
+    return [self](CostFilterArg& result,
+                   const DirectedEdge* /*edge*/,
+                   const std::vector<CostFilterNode>& /*args*/,
+                   const CustomAttributes& /*attrs*/) {
       result.value = self->literal_;
+      // result.value = "";
+      LOG_INFO(self->to_string () + ": " + result.value);
     };
   }
 
-  static FilterHandler Or(const Costing_Options& options, const CostFilterNode* /*self*/) {
-    return [&options](CostFilterArg& result,
+  static FilterHandler Or(const Costing_Options& options, const CostFilterNode* self) {
+    return [self,&options](CostFilterArg& result,
                       const DirectedEdge* edge,
                       const std::vector<CostFilterNode>& args,
                       const CustomAttributes& attrs) {
       for (const auto &arg: args) {
         arg(options, result, edge, attrs);
-        if (!result.value.empty()) return;
+        if (!result.value.empty()) break; // return;
       }
+      LOG_INFO(self->to_string () + ": " + result.value);
     };
   }
 
@@ -208,8 +274,8 @@ struct Filters {
     };
   }
 
-  static FilterHandler Not(const Costing_Options& options, const CostFilterNode* /*self*/) {
-    return [&options](CostFilterArg& result,
+  static FilterHandler Not(const Costing_Options& options, const CostFilterNode* self) {
+    return [self,&options](CostFilterArg& result,
                       const DirectedEdge* edge,
                       const std::vector<CostFilterNode>& args,
                       const CustomAttributes& attrs) {
@@ -220,11 +286,12 @@ struct Filters {
       }
       args[0](options, result, edge, attrs);
       result.value = result.value.empty () ? "1" : "";
+      LOG_INFO(self->to_string () + ": " + result.value);
     };
   }
 
-  static FilterHandler Eq(const Costing_Options& options, const CostFilterNode* /*self*/) {
-    return [&options](CostFilterArg& result,
+  static FilterHandler Eq(const Costing_Options& options, const CostFilterNode* self) {
+    return [self,&options](CostFilterArg& result,
                       const DirectedEdge* edge,
                       const std::vector<CostFilterNode>& args,
                       const CustomAttributes& attrs) {
@@ -235,39 +302,51 @@ struct Filters {
         args[i](options, result, edge, attrs);
         if (result.value != value) {
           result.value = "";
-          return;
+          // return;
+          break;
         }
       }
+      LOG_INFO(self->to_string () + ": " + result.value);
     };
   }
 
-  static FilterHandler Request(const Costing_Options& options, const CostFilterNode*  /*self*/) {
-    return [&options](CostFilterArg& result,
+  static FilterHandler Request(const Costing_Options& options, const CostFilterNode* self) {
+    return [self,&options](CostFilterArg& result,
                       const DirectedEdge* edge,
                       const std::vector<CostFilterNode>& args,
                       const CustomAttributes& attrs) {
+      std::stringstream ss;
+      for (const auto& kv : options.filter_args()) {
+        ss << kv.first << ": " << kv.second << ",";
+      }
+      LOG_INFO("Request() filter_args:{" + ss.str() + "}");
       if (!args.size()) {
         // TODO:error or set result "null"
         result.value = "";
         return;
       }
+      // get key
       args[0](options, result, edge, attrs);
       if (result.value.empty()) {
         // TODO:error
         return;
       }
+      LOG_INFO("Request() key: " + std::string(result.value));
       for (const auto &kv: options.filter_args()) {
         if (kv.first == result.value) {
           result.value = kv.second;
+          LOG_INFO(self->to_string () + ": " + result.value);
+          return;
         }
       }
       // TODO:error?
       result.value = "";
+      LOG_INFO(self->to_string () + ": " + result.value);
     };
   }
 
-  static FilterHandler Get(const Costing_Options&  options, const CostFilterNode*  /*self*/) {
-    return [&options](CostFilterArg& result,
+  static FilterHandler Get(const Costing_Options&  options, const CostFilterNode* self) {
+    return [self,&options](CostFilterArg& result,
                       const DirectedEdge* edge,
                       const std::vector<CostFilterNode>& args,
                       const CustomAttributes& attrs) {
@@ -283,6 +362,7 @@ struct Filters {
       }
       auto value = attrs.find(result.value);
       result.value = (value == attrs.cend() ? "" : value->second);
+      LOG_INFO(self->to_string () + ": " + result.value);
     };
   }
 };

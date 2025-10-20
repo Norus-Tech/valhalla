@@ -405,8 +405,23 @@ public:
    */
   inline virtual bool isFiltered(const baldr::DirectedEdge* edge,
                                  const graph_tile_ptr& tile) const {
-    auto attrs = tile->edgeinfo(edge).GetCustomAttributes();
-    return !filter_(edge, attrs);
+    try {
+      auto attrs = tile->edgeinfo(edge).GetCustomAttributes();
+
+      std::stringstream ss;
+      for (const auto& kv : attrs) {
+        ss << kv.first << ": " << kv.second << ",";
+      }
+      LOG_INFO("Edge " + std::to_string(edge->endnode()) + " attrs:{" + ss.str() + "}");
+
+      LOG_INFO("Filtering with:\n" + std::to_string (filter_));
+      const auto filtered = !filter_(edge, attrs);
+      LOG_INFO("Edge " + std::to_string(edge->endnode()) + " filtered: " + std::to_string (filtered));
+      return filtered;
+    } catch (std::runtime_error& rte) {
+      std::cerr << "error getting edge attrs: " << rte.what() << "\n";
+      return false;
+    }
   }
 
   /**

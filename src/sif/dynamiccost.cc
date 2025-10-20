@@ -168,6 +168,11 @@ DynamicCost::DynamicCost(const Costing& costing,
 
   const auto name = valhalla::Costing_Enum_Name(costing.type());
   LOG_INFO ("filter:\n" + std::to_string(filter_));
+  std::stringstream ss;
+  for (const auto& kv : costing.options().filter_args()) {
+    ss << kv.first << ": " << kv.second << ",";
+  }
+  LOG_INFO("costing filter_args:{" + ss.str() + "}");
 
   // if (costing.has_filter()) {
   //   LOG_INFO("Filter for '" + name + "': " + costing.filter().SerializeAsString());

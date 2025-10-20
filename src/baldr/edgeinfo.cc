@@ -301,6 +301,9 @@ std::vector<std::string> EdgeInfo::GetTaggedValues() const {
         if (tv == baldr::TaggedValue::kLinguistic) {
           continue;
         }
+        if (tv == baldr::TaggedValue::kCustomAttrs) {
+          continue;
+        }
 
         // add a per tag parser that returns 0 or more strings, parser skips tags it doesnt know
         std::vector<std::string> contents = parse_tagged_value(value);
@@ -344,7 +347,7 @@ std::unordered_map<std::string,std::string> EdgeInfo::GetCustomAttributes() cons
         LOG_DEBUG("invalid_argument thrown for name: " + std::string(name));
       }
     } else {
-      throw std::runtime_error("GetTaggedNames: offset exceeds size of text list");
+      throw std::runtime_error("GetCustomAttributes: offset exceeds size of text list");
     }
   }
   return attrs;

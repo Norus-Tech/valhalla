@@ -35,14 +35,18 @@ bool CostFilterNode::operator() (const Costing_Options& options,
                                  CostFilterArg& result,
                                  const DirectedEdge* edge,
                                  const CustomAttributes& attrs) const {
+  // LOG_INFO("Calling " + to_string());
   const auto f = handler_(options, this);
+  // LOG_INFO("Ran outer");
   f(result, edge, args_, attrs);
+  // LOG_INFO("Ran inner");
   return result.value != "";
 }
 
 bool CostFilterNode::operator() (const Costing_Options& options,
                                  const DirectedEdge* edge,
                                  const CustomAttributes& attrs) const {
+  LOG_INFO ("Calling " + to_string());
   CostFilterArg result;
   const auto f = handler_(options, this);
   f(result, edge, args_, attrs);
@@ -80,7 +84,7 @@ std::string CostFilterNode::to_string(int indent) const {
   return ss.str();
 }
 
-CostFilter::CostFilter() : root_(Filters::True) {}
+// CostFilter::CostFilter() : root_(Filters::True) {}
 
 FilterFactory get_filter_handler(const Costing_Filter& filter) {
 
@@ -88,9 +92,9 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
     return Filters::Literal;
   }
   const auto& tag = filter.tag();
-  LOG_INFO("tag: " + tag);
+  // LOG_INFO("tag: " + tag);
   const auto& handler = filter_handlers.find(tag);
-  if (handler == filter_handlers.end()) {
+  if (handler == filter_handlers.cend()) {
     LOG_WARN("No filter handler for '" + tag + "'");
     // TODO: throw
     return Filters::True;

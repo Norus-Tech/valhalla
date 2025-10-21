@@ -63,7 +63,7 @@ std::string CostFilterNode::to_string(int indent) const {
 }
 
 FilterFactory get_filter_handler(const Costing_Filter& filter) {
-  static FilterFactory True = [](const Costing_Options& /*options*/, const CostFilterNode* /*self*/)  {
+  static const FilterFactory True = [](const Costing_Options& /*options*/, const CostFilterNode* /*self*/)  {
     return [](CostFilterArg& result,
               const DirectedEdge*  /*edge*/,
               const std::vector<CostFilterNode>&  /*args*/,
@@ -72,7 +72,7 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
     };
   };
 
-  static FilterFactory False = [](const Costing_Options& /*options*/, const CostFilterNode* /*self*/) {
+  static const FilterFactory False = [](const Costing_Options& /*options*/, const CostFilterNode* /*self*/) {
     return [](CostFilterArg& result,
               const DirectedEdge*  /*edge*/,
               const std::vector<CostFilterNode>&  /*args*/,
@@ -81,7 +81,7 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
     };
   };
 
-  static FilterFactory Literal = [](const Costing_Options& /*options*/, const CostFilterNode* self) {
+  static const FilterFactory Literal = [](const Costing_Options& /*options*/, const CostFilterNode* self) {
     return [self](CostFilterArg& result,
                    const DirectedEdge* /*edge*/,
                    const std::vector<CostFilterNode>& /*args*/,
@@ -91,7 +91,7 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
     };
   };
 
-  static FilterFactory Or = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
+  static const FilterFactory Or = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
     return [&options](CostFilterArg& result,
                       const DirectedEdge* edge,
                       const std::vector<CostFilterNode>& args,
@@ -103,7 +103,7 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
     };
   };
 
-  static FilterFactory And = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
+  static const FilterFactory And = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
     return [&options](CostFilterArg& result,
                       const DirectedEdge* edge,
                       const std::vector<CostFilterNode>& args,
@@ -115,7 +115,7 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
     };
   };
 
-  static FilterFactory Not = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
+  static const FilterFactory Not = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
     return [&options](CostFilterArg& result,
                       const DirectedEdge* edge,
                       const std::vector<CostFilterNode>& args,
@@ -130,7 +130,7 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
     };
   };
 
-  static FilterFactory Eq = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
+  static const FilterFactory Eq = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
     return [&options](CostFilterArg& result,
                       const DirectedEdge* edge,
                       const std::vector<CostFilterNode>& args,
@@ -148,7 +148,7 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
     };
   };
 
-  static FilterFactory Request = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
+  static const FilterFactory Request = [](const Costing_Options& options, const CostFilterNode*  /*self*/) {
     return [&options](CostFilterArg& result,
                       const DirectedEdge* edge,
                       const std::vector<CostFilterNode>& args,
@@ -175,7 +175,7 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
     };
   };
 
-  static FilterFactory Get = [](const Costing_Options&  options, const CostFilterNode*  /*self*/) {
+  static const FilterFactory Get = [](const Costing_Options&  options, const CostFilterNode*  /*self*/) {
     return [&options](CostFilterArg& result,
                       const DirectedEdge* edge,
                       const std::vector<CostFilterNode>& args,
@@ -195,7 +195,7 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
     };
   };
 
-  static std::unordered_map<std::string, FilterFactory> filter_handlers = {
+  static const std::unordered_map<std::string, FilterFactory> filter_handlers = {
     {"true",    True},
     {"false",   False},
     {"literal", Literal},

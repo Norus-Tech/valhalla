@@ -41,4 +41,4 @@ jobs:
 
     - name: Build latest image
       run: |
-        docker buildx build --push --platform linux/amd64 --tag ghcr.io/norus-tech/valhalla:latest .
+        docker buildx build -f docker/Dockerfile --push --platform linux/amd64 --tag ghcr.io/norus-tech/valhalla:latest .

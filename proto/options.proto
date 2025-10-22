@@ -324,7 +324,7 @@ message Costing {
 
   message Filter {
     string tag = 1;
-    // for nodes
+    // for leaves
     oneof has_data {
       string data = 2;
     }

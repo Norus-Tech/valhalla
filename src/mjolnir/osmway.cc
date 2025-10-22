@@ -1002,6 +1002,7 @@ void OSMWay::GetTaggedValues(const UniqueNames& name_offset_map,
                              const size_t& names_size,
                              std::vector<std::string>& names,
                              std::vector<std::string>& linguistics,
+                             std::unordered_map<std::string, std::string>& custom_attributes,
                              OSMLinguistic::DiffType type,
                              bool diff_names) const {
 
@@ -1192,7 +1193,21 @@ void OSMWay::GetTaggedValues(const UniqueNames& name_offset_map,
       names.emplace_back(encode_tag(TaggedValue::kLevelRef) + t);
     }
   }
+  if (custom_attributes_index_ != 0) {
+    const auto& attrs_str = name_offset_map.name(custom_attributes_index_);
+    auto tokens = GetTagTokens(attrs_str, "\n");
+    for (const auto& t: tokens) {
+      const auto pos = t.find("\t");
+      if (pos == std::string::npos) {
+        // TODO: error/warn
+      } else {
+        custom_attributes[t.substr(0, pos)] = t.substr(pos+1);
+      }
+    }
+    names.emplace_back(encode_tag(TaggedValue::kCustomAttrs) + attrs_str);
+  }
 }
+
 
 } // namespace mjolnir
 } // namespace valhalla

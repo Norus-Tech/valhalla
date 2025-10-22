@@ -1965,9 +1965,32 @@ struct graph_parser {
       way_.set_bwd_signboard_base_index(osmdata_.name_offset_map.index(tag_.second));
     };
     tag_handlers_["lit"] = [this]() { way_.set_lit(tag_.second == "true" ? true : false); };
+    tag_handlers_["custom_attributes"] = [this]() {
+      LOG_INFO("in tag_handlers_['custom_attributes'](): " + tag_.second);
+      way_.set_custom_attributes_index(osmdata_.name_offset_map.index(tag_.second));
+    };
   }
 
   static std::string get_lua(const boost::property_tree::ptree& pt) {
+    const auto custom_attrs = pt.get_child("custom_attributes");
+    std::ostringstream s;
+
+    s << "custom_attributes = {\n[''] = 0";
+    if (!custom_attrs.empty()) {
+      custom_attributes_.clear();
+      custom_attribute_names_ = {""}; // basically map "" <-> [0] <-> false
+      int i = 0;
+      for (const auto& kv : custom_attrs) {
+        const std::string name = kv.first; // TODO:check
+        auto type = custom_attrs.get<std::string>(name);// TODO:check
+        custom_attributes_[name] = {type, ++i};
+        custom_attribute_names_.push_back(name);
+        s << ",\n['" << name << "'] = " << i;
+      }
+    }
+    s << "\n}\n\n";
+    const auto lua_script = s.str();
+
     auto graph_lua_name = pt.get_optional<std::string>("graph_lua_name");
     if (graph_lua_name) {
       LOG_INFO("Using LUA script: " + *graph_lua_name);
@@ -1975,9 +1998,11 @@ struct graph_parser {
       if (!lua.is_open()) {
         throw std::runtime_error("Failed to open: " + *graph_lua_name);
       }
-      return std::string((std::istreambuf_iterator<char>(lua)), std::istreambuf_iterator<char>());
+      s << lua.rdbuf();
+      return s.str();
     }
-    return std::string(lua_graph_lua, lua_graph_lua + lua_graph_lua_len);
+    s << lua_graph_lua;
+    return s.str();
   }
 
   // Handle bike share stations separately
@@ -5087,6 +5112,10 @@ struct graph_parser {
   Tags empty_node_tags_;
   Tags empty_relation_tags_;
 
+  // custom attribute handlers
+  static std::unordered_map<std::string, std::pair<std::string,int>> custom_attributes_;
+  static std::vector<std::string> custom_attribute_names_;
+
   uint32_t get_pronunciation_index(const uint8_t type, const uint8_t alpha) {
     auto itr = pronunciationMap.find(std::make_pair(type, alpha));
     if (itr != pronunciationMap.end()) {
@@ -5103,6 +5132,9 @@ struct graph_parser {
     return 0;
   }
 };
+
+std::unordered_map<std::string, std::pair<std::string,int>> graph_parser::custom_attributes_;
+std::vector<std::string> graph_parser::custom_attribute_names_;
 
 } // namespace
 

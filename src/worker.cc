@@ -1134,6 +1134,14 @@ void from_json(rapidjson::Document& doc, Options::Action action, Api& api) {
   doc.AddMember({"language", allocator}, {options.language(), allocator}, allocator);
   doc.AddMember({"format", allocator},
                 {valhalla::Options_Format_Enum_Name(options.format()), allocator}, allocator);
+  // get filter args
+  auto filter_args = rapidjson::get_child_optional(doc, "/filter_args");
+  if (filter_args) {
+    auto& pbf_args = *options.mutable_filter_args();
+    for (const auto &kv : filter_args->GetObject()) {
+      pbf_args[kv.name.GetString()] = kv.value.GetString();
+    }
+  }
 }
 
 } // namespace

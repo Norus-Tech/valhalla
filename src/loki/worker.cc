@@ -11,6 +11,9 @@
 #include <string>
 #include <unordered_set>
 
+#include <google/protobuf/text_format.h>
+#include <google/protobuf/util/json_util.h>
+
 using namespace valhalla;
 using namespace valhalla::midgard;
 using namespace valhalla::baldr;
@@ -100,6 +103,13 @@ void loki_worker_t::parse_costing(Api& api, bool allow_none) {
       add_warning(api, 208);
     }
   }
+  CostFilter::ParseFilters(config, options);
+  for (auto &kv: *options.mutable_costings()) {
+    const auto& name = Costing_Enum_Name(options.costing_type());
+    if (!kv.second.has_filter()) {
+      LOG_WARN("After parse, no filter for '" + name + "!!");
+    }
+  }
 
   const auto& costing_str = Costing_Enum_Name(options.costing_type());
   try {
@@ -181,7 +191,7 @@ void loki_worker_t::parse_costing(Api& api, bool allow_none) {
 
 loki_worker_t::loki_worker_t(const boost::property_tree::ptree& config,
                              const std::shared_ptr<baldr::GraphReader>& graph_reader)
-    : service_worker_t(config), config(config),
+  : service_worker_t(config), config(config),
       reader(graph_reader ? graph_reader
                           : std::make_shared<baldr::GraphReader>(config.get_child("mjolnir"))),
       connectivity_map(config.get<bool>("loki.use_connectivity", true)

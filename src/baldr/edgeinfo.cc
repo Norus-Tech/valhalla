@@ -346,9 +346,10 @@ std::unordered_map<std::string,std::string> EdgeInfo::GetCustomAttributes() cons
       } catch (const std::invalid_argument& arg) {
         LOG_DEBUG("invalid_argument thrown for name: " + std::string(name));
       }
-    } else {
-      throw std::runtime_error("GetCustomAttributes: offset exceeds size of text list");
-    }
+    }//  else {
+    //   throw std::runtime_error("GetCustomAttributes: offset exceeds size of text list");
+    // }
+    // custom attrs are optional and likely sparse, abscence is not an error (I think?)
   }
   return attrs;
 }

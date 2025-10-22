@@ -2485,6 +2485,24 @@ struct OSMWay {
     return lit_;
   }
 
+  /**
+   * Sets the custom_attributes index.
+   *
+   * @param idx: Index fro the custom_attributes block
+   */
+  void set_custom_attributes_index(const uint32_t idx) {
+    custom_attributes_index_ = idx;
+  }
+
+  /**
+   * Sets the custom_attributes index.
+   *
+   * @param idx: Index fro the custom_attributes block
+   */
+  uint32_t custom_attributes_index() const {
+    return custom_attributes_index_;
+  }
+
   static void
   ProcessNamesPronunciations(const UniqueNames& name_offset_map,
                              const std::vector<std::pair<std::string, bool>>& default_languages,
@@ -2529,8 +2547,10 @@ struct OSMWay {
                        const size_t& names_size,
                        std::vector<std::string>& names,
                        std::vector<std::string>& linguistics,
+                       std::unordered_map<std::string, std::string>& custom_attributes,
                        OSMLinguistic::DiffType type = OSMLinguistic::DiffType::kRight,
                        bool diff_names = false) const;
+
 
   // OSM way Id
   uint64_t osmwayid_;
@@ -2732,6 +2752,8 @@ struct OSMWay {
 
   // layer index(Z-level) of the way relatively to other levels
   int8_t layer_;
+
+  uint32_t custom_attributes_index_;
 };
 
 } // namespace mjolnir

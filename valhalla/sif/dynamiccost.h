@@ -17,6 +17,7 @@
 #include <valhalla/sif/costconstants.h>
 #include <valhalla/sif/edgelabel.h>
 #include <valhalla/thor/edgestatus.h>
+#include <valhalla/sif/costfilter.h>
 
 #include <boost/container/small_vector.hpp>
 
@@ -398,6 +399,34 @@ public:
 
   inline virtual bool ModeSpecificAllowed(const baldr::AccessRestriction&) const {
     return true;
+  }
+
+  /**
+   * Allow custom pruning of edges based on possibly custom data and custom filters defined either
+   * in config or in the request
+   *
+   * @param edge           the edge that should or shouldnt be allowed
+   * @param tile           the tile which contains the edge (for traffic lookup)
+   * @return true if the edge should be removed as a candidate
+   */
+  inline virtual bool isFiltered(const baldr::DirectedEdge* edge,
+                                 const baldr::graph_tile_ptr& tile) const {
+    try {
+      auto attrs = tile->edgeinfo(edge).GetCustomAttributes();
+      LOG_DEBUG("Edge " + std::to_string(edge->endnode()) + " attrs:{" + ([](auto& attrs){
+        std::stringstream ss;
+        for (const auto& kv : attrs) {
+          ss << kv.first << ": " << kv.second << ",";
+        }
+        return ss.str();
+      })(attrs) + "}\nFiltering with:\n" + std::to_string (filter_));
+      const auto filtered = !filter_(edge, attrs);
+      LOG_DEBUG("Edge " + std::to_string(edge->endnode()) + " filtered: " + std::to_string(filtered));
+      return filtered;
+    } catch (std::runtime_error& rte) {
+      std::cerr << "error getting edge attrs: " << rte.what() << "\n";
+      return false;
+    }
   }
 
   /**
@@ -1195,6 +1224,9 @@ protected:
 
   // Is it truck?
   bool is_hgv_{false};
+
+  // filtering
+  const sif::CostFilter filter_;
 
   /**
    * Get the base transition costs (and ferry factor) from the costing options.

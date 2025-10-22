@@ -210,11 +210,15 @@ public:
 
   /**
    * Convenience method to get the linguistic names for an edge
-   * @param  type  type of linguistic names we are interested in obtaining.
-   *
    * @return   Returns a list (vector) of linguistic names.
    */
   std::vector<std::string> GetLinguisticTaggedValues() const;
+
+  /**
+   * Convenience method to get the custom attributes for an edge
+   * @return   Returns a list (vector) of linguistic names.
+   */
+  std::unordered_map<std::string,std::string> GetCustomAttributes() const;
 
   /**
    * Convenience method to get the names, route number flags and tag value type for an edge.

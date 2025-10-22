@@ -4,6 +4,7 @@
 #include "midgard/elevation_encoding.h"
 #include "midgard/logging.h"
 #include "midgard/util.h"
+#include "mjolnir/util.h"
 
 #include <vector>
 
@@ -300,6 +301,9 @@ std::vector<std::string> EdgeInfo::GetTaggedValues() const {
         if (tv == baldr::TaggedValue::kLinguistic) {
           continue;
         }
+        if (tv == baldr::TaggedValue::kCustomAttrs) {
+          continue;
+        }
 
         // add a per tag parser that returns 0 or more strings, parser skips tags it doesnt know
         std::vector<std::string> contents = parse_tagged_value(value);
@@ -312,6 +316,41 @@ std::vector<std::string> EdgeInfo::GetTaggedValues() const {
     }
   }
   return tagged_values;
+}
+
+// get custom attributes map
+std::unordered_map<std::string,std::string> EdgeInfo::GetCustomAttributes() const {
+  std::unordered_map<std::string,std::string> attrs;
+  const NameInfo* ni = name_info_list_;
+  for (uint32_t i = 0; i < name_count(); i++, ni++) {
+    if (!ni->tagged_)
+      continue;
+
+    if (ni->name_offset_ < names_list_length_) {
+      const auto* name = names_list_ + ni->name_offset_;
+      try {
+        auto tv = static_cast<baldr::TaggedValue>(name[0]);
+        if (tv == baldr::TaggedValue::kCustomAttrs) {
+          name += 1;
+          auto tokens = mjolnir::GetTagTokens(name, "\n");
+          for (const auto& t: tokens) {
+            const auto pos = t.find("\t");
+            if (pos == std::string::npos) {
+              // TODO: error/warn
+            } else {
+              attrs[t.substr(0, pos)] = t.substr(pos+1);
+            }
+          }
+          break;
+        }
+      } catch (const std::invalid_argument& arg) {
+        LOG_DEBUG("invalid_argument thrown for name: " + std::string(name));
+      }
+    } else {
+      throw std::runtime_error("GetCustomAttributes: offset exceeds size of text list");
+    }
+  }
+  return attrs;
 }
 
 // Get a list of tagged names
@@ -557,6 +596,8 @@ void EdgeInfo::json(rapidjson::writer_wrapper_t& writer) const {
       case TaggedValue::kLevelRef:
         break;
       case TaggedValue::kLandmark:
+        break;
+      case TaggedValue::kCustomAttrs:
         break;
       case TaggedValue::kLevels: {
         writer.start_array("levels");

@@ -520,6 +520,10 @@ int main(int argc, char* argv[]) {
   // Grab the directions options, if they exist
   valhalla::Api request;
   valhalla::ParseApi(json_str, valhalla::Options::route, request);
+
+  // construct custom filter // TODO: put this where it belongs
+  CostFilter::ParseFilters(config, *request.mutable_options());
+
   const auto& options = request.options();
 
   // Get type of route - this provides the costing method to use.
@@ -554,6 +558,7 @@ int main(int argc, char* argv[]) {
   CostFactory factory;
   // Get the costing method - pass the JSON configuration
   TravelMode mode;
+
   auto mode_costing = factory.CreateModeCosting(options, mode);
 
   // Find path locations (loki) for sources and targets

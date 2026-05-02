@@ -15,6 +15,7 @@ set(sources
   route_action.cc
   search.cc
   trace_route_action.cc
+  traffic_action.cc
   worker.cc)
 
 set(system_includes
@@ -32,6 +33,7 @@ valhalla_module(NAME loki
     PRIVATE
       ${rapidjson_include_dir}
       ${CMAKE_BINARY_DIR}
+      ${VALHALLA_SOURCE_DIR}/third_party/microtar/src
   SYSTEM_INCLUDE_DIRECTORIES
     PUBLIC
       ${system_includes}

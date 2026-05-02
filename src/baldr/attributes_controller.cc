@@ -169,8 +169,8 @@ const std::unordered_map<std::string_view, bool> AttributesController::kDefaultA
     // Per-shape attributes
     {kShapeAttributesTime, false},
     {kShapeAttributesLength, false},
-    {kShapeAttributesSpeed, false},
-    {kShapeAttributesSpeedLimit, false},
+    {kShapeAttributesSpeed, true},
+    {kShapeAttributesSpeedLimit, true},
     {kShapeAttributesClosure, false},
 };
 

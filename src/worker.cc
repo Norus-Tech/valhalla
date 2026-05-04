@@ -1142,6 +1142,21 @@ void from_json(rapidjson::Document& doc, Options::Action action, Api& api) {
       pbf_args[kv.name.GetString()] = kv.value.GetString();
     }
   }
+
+  //speed settings
+  options.set_path_speed_live (
+      rapidjson::get<uint32_t>(doc, "/path_speed_live", 0));
+  options.set_path_speed_constrained (
+      rapidjson::get<uint32_t>(doc, "/path_speed_constrained", 0));
+  options.set_path_speed_freeflow (
+      rapidjson::get<uint32_t>(doc, "/path_speed_freeflow", 0));
+  auto predicted_speeds_json =
+    rapidjson::get_optional<rapidjson::Value::ConstArray>(doc, "/path_speed_predicted");
+  if (predicted_speeds_json) {
+    for (const auto& speed : *predicted_speeds_json) {
+      options.add_path_speed_predicted(speed.GetUint());
+    }
+  }
 }
 
 } // namespace

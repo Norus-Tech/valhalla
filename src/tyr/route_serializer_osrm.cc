@@ -361,6 +361,33 @@ json::MapPtr serialize_annotations(const valhalla::TripLeg& trip_leg) {
     attributes_map->emplace("maxspeed", speed_limits_array);
   }
 
+
+  // Add congestion array derived from speed vs speed limit
+  if (trip_leg.shape_attributes().speed_size() > 0 &&
+      trip_leg.shape_attributes().speed_limit_size() > 0) {
+    auto congestion_array = json::array({});
+    congestion_array->reserve(trip_leg.shape_attributes().speed_size());
+    // std::fill(congestion_array->begin(), congestion_array->end(), json::fixed_t{1.0, 1});
+
+    const auto& speeds = trip_leg.shape_attributes().speed();
+    const auto& speed_limits = trip_leg.shape_attributes().speed_limit();
+
+    for (int i = 0; i < speeds.size(); ++i) {
+      // speed is in dm/s, convert to kph
+      double current_kph = speeds[i] * kMeterPerDecimeter * 3.6;
+      double congestion = 1.0;
+      if (i < speed_limits.size()) {
+        auto speed_limit = speed_limits[i];
+        if (speed_limit == kUnlimitedSpeedLimit || speed_limit <= 0) {
+          speed_limit = kDefaultSpeedLimit;
+        }
+          congestion = std::clamp((1.0 - current_kph / speed_limit) * 100.0, 1.0, 100.0);
+      }
+      congestion_array->push_back(json::fixed_t{congestion, 1});
+    }
+    attributes_map->emplace("congestion_numeric", congestion_array);
+  }
+
   return attributes_map;
 }
 

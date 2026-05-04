@@ -428,6 +428,11 @@ loki_worker_t::work(const std::list<zmq::message_t>& job,
         }
         result.messages.emplace_back(request.SerializeAsString());
         break;
+      case Options::traffic:
+        route(request);
+        result.messages.emplace_back(request.SerializeAsString());
+        // result = to_response("{}", info, request);
+        break;
       default:
         // apparently you wanted something that we figured we'd support but havent written yet
         throw valhalla_exception_t{107};

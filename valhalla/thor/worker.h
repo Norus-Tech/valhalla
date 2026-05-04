@@ -56,6 +56,7 @@ public:
   std::string expansion(Api& request);
   void centroid(Api& request);
   void status(Api& request) const;
+  void traffic(Api& request);
 
   void set_interrupt(const std::function<void()>* interrupt) override;
 
@@ -135,6 +136,10 @@ protected:
   hierarchy_limits_config_t hierarchy_limits_config_astar;
   hierarchy_limits_config_t hierarchy_limits_config_bidirectional_astar;
   hierarchy_limits_config_t hierarchy_limits_config_costmatrix;
+
+  // dirs for traffic
+  std::string tile_dir;
+  std::string traffic_extract;
 
 private:
   std::string service_name() const override {

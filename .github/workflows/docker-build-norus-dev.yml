@@ -2,7 +2,7 @@ name: Publish Docker image
 on:
   push:
     branches:
-      - "build"
+      - "build-dev"
     tags:
       - "*"
     paths-ignore:

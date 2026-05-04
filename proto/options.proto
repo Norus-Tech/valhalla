@@ -378,6 +378,7 @@ message Options {
     expansion = 10;
     centroid = 11;
     status = 12;
+    traffic = 13;
   }
 
   enum DateTimeType {
@@ -504,4 +505,8 @@ message Options {
     Costing.Filter filter = 61;
   }
   map<string, string> filter_args = 62;
+  uint32 path_speed_live = 63;                                     // set live speed on edges in discovered route
+  uint32 path_speed_constrained = 64;                              // set constrained speed on edges in discovered route
+  uint32 path_speed_freeflow = 65;                                 // set freeflow speed on edges in discovered route
+  repeated uint32 path_speed_predicted = 66;                       // set predicted speeds on edges in discovered route
 }

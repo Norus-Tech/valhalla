@@ -144,6 +144,9 @@ int main(int argc, char** argv) {
         case valhalla::Options::status:
           std::cout << actor.status(request_str, nullptr, &request) << std::endl;
           break;
+        case valhalla::Options::traffic:
+          std::cout << actor.traffic(request_str, nullptr, &request) << std::endl;
+          break;
         default:
           std::cerr << "Unknown action" << std::endl;
           return 1;

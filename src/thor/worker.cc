@@ -69,7 +69,10 @@ thor_worker_t::thor_worker_t(const boost::property_tree::ptree& config,
                           : std::make_shared<baldr::GraphReader>(config.get_child("mjolnir"))),
       matcher_factory(config, reader), controller{},
       allow_hierarchy_limits_modifications(
-          config.get<bool>("service_limits.hierarchy_limits.allow_modification", false)) {
+          config.get<bool>("service_limits.hierarchy_limits.allow_modification", false)),
+      tile_dir(config.get<std::string>("mjolnir.tile_dir", "")),
+      traffic_extract(config.get<std::string>("mjolnir.traffic_extract", "")) {
+
 
   // Select the matrix algorithm based on the conf file (defaults to
   // select_optimal if not present)
@@ -176,6 +179,11 @@ thor_worker_t::work(const std::list<zmq::message_t>& job,
       }
       case Options::status: {
         status(request);
+        result.messages.emplace_back(serialize_to_pbf(request));
+        break;
+      }
+      case Options::traffic: {
+        traffic(request);
         result.messages.emplace_back(serialize_to_pbf(request));
         break;
       }

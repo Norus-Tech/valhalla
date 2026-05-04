@@ -82,6 +82,8 @@ std::string actor_t::act(Api& api, const std::function<void()>* interrupt) {
       return centroid("", interrupt, &api);
     case Options::status:
       return status("", interrupt, &api);
+    case Options::traffic:
+      return traffic("", interrupt, &api);
     default:
       throw valhalla_exception_t{106};
   }
@@ -367,5 +369,26 @@ actor_t::status(const std::string& request_str, const std::function<void()>* int
   return json;
 }
 
+std::string
+actor_t::traffic(const std::string& request_str, const std::function<void()>* interrupt, Api* api) {
+  auto scoped_cleaner = make_finally([this]() {
+    if (auto_cleanup)
+      cleanup();
+  });
+  // set the interrupts
+  pimpl->set_interrupts(interrupt);
+  // if the caller doesn't want a copy we'll use this dummy
+  Api dummy;
+  if (!api) {
+    api = &dummy;
+  }
+  // parse the request
+  ParseApi(request_str, Options::traffic, *api);
+  // check the request and locate the locations in the graph
+  pimpl->loki_worker.route(*api);
+  // route between the locations in the graph to find the best path
+  pimpl->thor_worker.traffic(*api);
+  return "{}"; // TODO: for now
+}
 } // namespace tyr
 } // namespace valhalla

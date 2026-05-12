@@ -1,6 +1,7 @@
 #include "thor/worker.h"
 #include "midgard/logging.h"
 #include "thor/isochrone.h"
+#include "baldr/json.h"
 
 #include <boost/property_tree/ptree.hpp>
 
@@ -182,12 +183,31 @@ thor_worker_t::work(const std::list<zmq::message_t>& job,
         result.messages.emplace_back(serialize_to_pbf(request));
         break;
       }
-      case Options::traffic: {
+    case Options::traffic: {
+      if (request.options().traffic_segments_size() > 0) {
+        auto bulk_result = traffic_bulk(request);
+        // serialize result
+        auto json = json::map({
+            {"succeeded", static_cast<uint64_t>(bulk_result.succeeded)},
+              {"failed", [&]() {
+                auto arr = json::array({});
+                for (const auto& [idx, err] : bulk_result.failed)
+                  arr->push_back(json::map({
+                        {"index", static_cast<uint64_t>(idx)},
+                        {"error", err}
+                      }));
+                return arr;
+              }()}
+          });
+        std::ostringstream oss;
+        oss << *json;
+        result = to_response(oss.str(), info, request);
+      } else {
         traffic(request);
         result.messages.emplace_back(serialize_to_pbf(request));
-        break;
       }
-      default:
+      break;
+    }      default:
         throw valhalla_exception_t{400}; // this should never happen
     }
   } catch (const valhalla_exception_t& e) {

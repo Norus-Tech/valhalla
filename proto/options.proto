@@ -349,6 +349,15 @@ message Costing {
   }
 }
 
+// in options.proto
+message TrafficSegment {
+  repeated Location locations = 1;
+  uint32 path_speed_live = 2;               // set live speed on edges in discovered route
+  uint32 path_speed_constrained = 3;        // set constrained speed on edges in discovered route
+  uint32 path_speed_freeflow = 4;           // set freeflow speed on edges in discovered route
+  repeated uint32 path_speed_predicted = 5; // set predicted speeds on edges in discovered route
+  uint32 retries = 6;                       // per-segment override; 0 = use global default
+}
 message Options {
 
   enum Units {
@@ -509,4 +518,5 @@ message Options {
   uint32 path_speed_constrained = 64;                              // set constrained speed on edges in discovered route
   uint32 path_speed_freeflow = 65;                                 // set freeflow speed on edges in discovered route
   repeated uint32 path_speed_predicted = 66;                       // set predicted speeds on edges in discovered route
-}
+  repeated TrafficSegment traffic_segments = 67;                   // bulk speed data
+  uint32 traffic_max_retries = 68;}                                // how many times to try one speed update before adding it to failures

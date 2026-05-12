@@ -469,11 +469,68 @@ bool intermediate_loc_edge_trimming(
       update_tile(tile_dir, tile_id, speeds);
     }
   }
-
-
-
   // assign changed locations
   // *request.mutable_options()->mutable_locations() = std::move(correlated);
+}
+
+TrafficBulkResult thor_worker_t::traffic_bulk(Api& request) {
+  auto _ = measure_scope_time(request);
+  const Options& options = request.options();
+
+  uint32_t max_retries = options.traffic_max_retries() > 0
+                           ? options.traffic_max_retries()
+                           : 2;
+
+  TrafficBulkResult result;
+
+  for (int i = 0; i < options.traffic_segments_size(); ++i) {
+    const auto& segment = options.traffic_segments(i);
+    uint32_t retries = segment.retries() > 0 ? segment.retries() : max_retries;
+
+    // build a fresh Api for this segment, inheriting costing from parent
+    Api seg_api;
+    auto* seg_opts = seg_api.mutable_options();
+    seg_opts->CopyFrom(options);
+
+    // clear bulk fields to avoid recursion
+    seg_opts->clear_traffic_segments();
+
+    // populate per-segment speed fields
+    seg_opts->set_path_speed_live(segment.path_speed_live());
+    seg_opts->set_path_speed_constrained(segment.path_speed_constrained());
+    seg_opts->set_path_speed_freeflow(segment.path_speed_freeflow());
+    seg_opts->clear_path_speed_predicted();
+    for (auto s : segment.path_speed_predicted())
+      seg_opts->add_path_speed_predicted(s);
+
+    // populate locations
+    seg_opts->clear_locations();
+    for (const auto& loc : segment.locations())
+      *seg_opts->add_locations() = loc;
+
+    // force pedestrian costing
+    seg_opts->set_costing_type(Costing::pedestrian);
+
+    std::string last_error;
+    bool ok = false;
+    for (uint32_t attempt = 0; attempt < retries; ++attempt) {
+      try {
+        traffic(seg_api);
+        ok = true;
+        break;
+      } catch (const valhalla_exception_t& e) {
+        last_error = e.message;
+      } catch (const std::exception& e) {
+        last_error = e.what();
+      }
+    }
+
+    if (ok)
+      ++result.succeeded;
+    else
+      result.failed.emplace_back(i, last_error);
+  }
+  return result;
 }
 } // namespace thor
 } // namespace valhalla

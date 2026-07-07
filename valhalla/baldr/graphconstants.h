@@ -92,6 +92,9 @@ constexpr uint32_t kMaxDensity = 15;
 // Unlimited speed limit. In OSM maxspeed=none. Set to max value to signify
 // unlimited.
 constexpr uint8_t kUnlimitedSpeedLimit = std::numeric_limits<uint8_t>::max();
+ 
+// default speed if you want to just use a reasonable-enough default
+ constexpr uint8_t kDefaultSpeedLimit = 30;
 
 // The max assumed speed we know from static data
 constexpr uint8_t kMaxAssumedSpeed = 140; // ~85 MPH

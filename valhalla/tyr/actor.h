@@ -213,6 +213,17 @@ public:
                      const std::function<void()>* interrupt = nullptr,
                      Api* api = nullptr);
 
+  /**
+   * Perform the traffic action and set various speeds for a found route.
+   * @param interrupt    allows the underlying computation to be aborted via the functor throwing
+   * @param api          protobuffer object which can contain the input request via the options object
+   *                     and will be filled out as the request is processed
+   * @return empty json object for now
+   */
+  std::string traffic(const std::string& request_str,
+                      const std::function<void()>* interrupt = nullptr,
+                      Api* api = nullptr);
+
 protected:
   struct pimpl_t;
   std::shared_ptr<pimpl_t> pimpl;

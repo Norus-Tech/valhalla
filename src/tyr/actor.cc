@@ -82,6 +82,8 @@ std::string actor_t::act(Api& api, const std::function<void()>* interrupt) {
       return centroid("", interrupt, &api);
     case Options::status:
       return status("", interrupt, &api);
+    case Options::traffic:
+      return traffic("", interrupt, &api);
     default:
       throw valhalla_exception_t{106};
   }
@@ -367,5 +369,56 @@ actor_t::status(const std::string& request_str, const std::function<void()>* int
   return json;
 }
 
+std::string
+actor_t::traffic(const std::string& request_str, const std::function<void()>* interrupt, Api* api) {
+  auto scoped_cleaner = make_finally([this]() {
+    if (auto_cleanup)
+      cleanup();
+  });
+  pimpl->set_interrupts(interrupt);
+  Api dummy;
+  if (!api) {
+    api = &dummy;
+  }
+  ParseApi(request_str, Options::traffic, *api);
+
+  if (api->options().traffic_segments_size() > 0) {
+    // correlate locations for each segment before handing to thor
+    for (auto& segment : *api->mutable_options()->mutable_traffic_segments()) {
+      Api seg_api;
+      seg_api.mutable_options()->CopyFrom(api->options());
+      seg_api.mutable_options()->clear_traffic_segments();
+      seg_api.mutable_options()->clear_locations();
+      for (const auto& loc : segment.locations())
+        *seg_api.mutable_options()->add_locations() = loc;
+      seg_api.mutable_options()->set_costing_type(Costing::pedestrian);
+      pimpl->loki_worker.route(seg_api);
+      // write correlated locations back onto the segment
+      segment.clear_locations();
+      for (const auto& loc : seg_api.options().locations())
+        *segment.add_locations() = loc;
+    }
+
+    auto bulk_result = pimpl->thor_worker.traffic_bulk(*api);
+
+    std::ostringstream ss;
+    ss << "{\"succeeded\":" << bulk_result.succeeded << ",\"failed\":[";
+    for (size_t i = 0; i < bulk_result.failed.size(); ++i) {
+      if (i > 0) ss << ",";
+      ss << "{\"index\":" << bulk_result.failed[i].first
+         << ",\"error\":\"" << bulk_result.failed[i].second << "\"}";
+    }
+    ss << "]}";
+    return ss.str();
+  }
+
+  pimpl->loki_worker.route(*api);
+  try {
+    pimpl->thor_worker.traffic(*api);
+    return "{\"succeeded\":1,\"failed\":[]}";
+  } catch (const std::exception& e) {
+    return "{\"succeeded\":0,\"failed\":[{\"index\":0,\"error\":\"" + std::string(e.what()) + "\"}]}";
+  }
+}
 } // namespace tyr
 } // namespace valhalla

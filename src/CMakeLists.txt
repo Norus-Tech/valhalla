@@ -163,7 +163,8 @@ if (ENABLE_SERVICES)
   set(valhalla_src ${valhalla_src} tile_server.cc)
 endif()
 
-add_library(valhalla ${valhalla_src})
+add_library(valhalla ${valhalla_src} ${VALHALLA_SOURCE_DIR}/third_party/microtar/src/microtar.h
+        ${VALHALLA_SOURCE_DIR}/third_party/microtar/src/microtar.c)
 set_target_properties(valhalla PROPERTIES FOLDER "Library")
 create_source_groups("Source Files" ${valhalla_src})
 

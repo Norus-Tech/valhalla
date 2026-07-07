@@ -349,7 +349,7 @@ std::unordered_map<std::string,std::string> EdgeInfo::GetCustomAttributes() cons
     }//  else {
     //   throw std::runtime_error("GetCustomAttributes: offset exceeds size of text list");
     // }
-    // custom attrs are optional and likely sparse, abscence is not an error (I think?)
+    // custom attrs are optional and likely sparse, absence is not an error (I think?)
   }
   return attrs;
 }

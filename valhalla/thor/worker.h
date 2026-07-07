@@ -28,6 +28,11 @@
 namespace valhalla {
 namespace thor {
 
+struct TrafficBulkResult {
+  uint32_t succeeded = 0;
+  std::vector<std::pair<uint32_t, std::string>> failed;
+};
+
 #ifdef ENABLE_SERVICES
 void run_service(const boost::property_tree::ptree& config);
 #endif
@@ -56,6 +61,8 @@ public:
   std::string expansion(Api& request);
   void centroid(Api& request);
   void status(Api& request) const;
+  void traffic(Api& request);
+  TrafficBulkResult traffic_bulk(Api& request);
 
   void set_interrupt(const std::function<void()>* interrupt) override;
 
@@ -135,6 +142,10 @@ protected:
   hierarchy_limits_config_t hierarchy_limits_config_astar;
   hierarchy_limits_config_t hierarchy_limits_config_bidirectional_astar;
   hierarchy_limits_config_t hierarchy_limits_config_costmatrix;
+
+  // dirs for traffic
+  std::string tile_dir;
+  std::string traffic_extract;
 
 private:
   std::string service_name() const override {

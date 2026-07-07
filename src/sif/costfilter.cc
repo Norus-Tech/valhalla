@@ -1,5 +1,6 @@
 #include <valhalla/sif/costfilter.h>
 
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -195,18 +196,57 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
     };
   };
 
+  // Contains: args[0] = comma-delimited haystack, args[1] = needle.
+  // Returns needle if found, "" if not
+  static const FilterFactory Contains = [](const Costing_Options& options, const CostFilterNode* /*self*/) {
+       return [&options](CostFilterArg& result,
+                      const DirectedEdge* edge,
+                      const std::vector<CostFilterNode>& args,
+                      const CustomAttributes& attrs) {
+      if (args.size() < 2) {
+        result.value = "";
+        return;
+      }
+      // evaluate haystack
+      args[0](options, result, edge, attrs);
+      const auto haystack = result.value;
+      if (haystack.empty()) {
+        result.value = "";
+        return;
+      }
+      // evaluate needle
+      args[1](options, result, edge, attrs);
+      const auto needle = result.value;
+      if (needle.empty()) {
+        result.value = "";
+        return;
+      }
+      // split haystack on ',' and check for exact token match
+      std::istringstream ss(haystack);
+      std::string token;
+      while (std::getline(ss, token, ',')) {
+        if (token == needle) {
+          result.value = needle;
+          return;
+        }
+      }
+      result.value = "";
+    };
+  };
+
   static const std::unordered_map<std::string, FilterFactory> filter_handlers = {
-    {"true",    True},
-    {"false",   False},
-    {"literal", Literal},
-    {"or",      Or},
-    {"and",     And},
-    {"not",     Not},
-    {"!",       Not},
-    {"==",      Eq},
-    {"eq",      Eq},
-    {"request", Request},
-    {"get",     Get},
+    {"true",     True},
+    {"false",    False},
+    {"literal",  Literal},
+    {"or",       Or},
+    {"and",      And},
+    {"not",      Not},
+    {"!",        Not},
+    {"==",       Eq},
+    {"eq",       Eq},
+    {"request",  Request},
+    {"get",      Get},
+    {"contains", Contains},
   };
 
   if (filter.has_data()) {    // node, tag shouldn't matter
@@ -219,7 +259,7 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
     // TODO: throw
     return True;
   }
-  return handler->second;;
+  return handler->second;
 }
 
 } // namespace sif

@@ -14,6 +14,12 @@
 namespace valhalla {
 namespace sif {
 
+// Filter factories are intentionally stateless and declared static const. Each factory is
+// initialized once and shared across all calls to get_filter_handler. The outer lambda
+// (FilterFactory) must capture nothing; any per-request context (e.g. filter_args) belongs in the
+// inner FilterHandler lambda, which receives Costing_Options at evaluation time. Handlers must
+// remain pure. Adding a capture to a handler is undefined behaviour.
+
 using DirectedEdge = baldr::DirectedEdge;
 const std::unordered_map<Costing::Type, std::string> kCostingNameMapping{
     {Costing::none_, "none"},

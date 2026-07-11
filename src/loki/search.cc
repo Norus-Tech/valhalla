@@ -40,7 +40,8 @@ bool search_filter(const DirectedEdge* edge,
          (filter.exclude_ferry_ && (edge->use() == Use::kFerry || edge->use() == Use::kRailFerry)) ||
          (filter.exclude_closures_ && (costing.flow_mask() & kCurrentFlowMask) &&
           tile->IsClosed(edge)) ||
-         (filter.level_ != kMaxLevel && !tile->edgeinfo(edge).includes_level(filter.level_));
+         (filter.level_ != kMaxLevel && !tile->edgeinfo(edge).includes_level(filter.level_)) ||
+         costing.isFiltered(edge, tile);
 }
 
 bool side_filter(const PathLocation::PathEdge& edge, const Location& location, GraphReader& reader) {

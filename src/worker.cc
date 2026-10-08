@@ -1142,6 +1142,14 @@ void from_json(rapidjson::Document& doc, Options::Action action, Api& api) {
       pbf_args[kv.name.GetString()] = kv.value.GetString();
     }
   }
+  // get admin args (pass-through KV for /admin action)
+  auto admin_args = rapidjson::get_child_optional(doc, "/admin_args");
+  if (admin_args) {
+    auto& pbf_args = *options.mutable_admin_args();
+    for (const auto &kv : admin_args->GetObject()) {
+      pbf_args[kv.name.GetString()] = kv.value.GetString();
+    }
+  }
 
   //speed settings
   options.set_path_speed_live (

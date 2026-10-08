@@ -42,6 +42,7 @@ public:
   std::string transit_available(Api& request);
   void status(Api& request) const;
   void traffic(Api& request);
+  std::string admin(Api& request);
 
   void set_interrupt(const std::function<void()>* interrupt) override;
 

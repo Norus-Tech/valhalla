@@ -2,6 +2,12 @@ syntax = "proto3";
 option optimize_for = LITE_RUNTIME;
 package valhalla;
 
+message ActiveBuild {
+  string type = 1;       // "global" or "org"
+  string org_id = 2;     // empty for global builds
+  uint64 started_at = 3; // unix seconds
+}
+
 message Status {
   // oneof's are only returned on verbose=true
   oneof has_has_tiles {
@@ -28,4 +34,5 @@ message Status {
   oneof has_osm_changeset {
     uint64 osm_changeset = 10;
   }
+  ActiveBuild active_build = 11;
 }

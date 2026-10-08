@@ -388,6 +388,7 @@ message Options {
     centroid = 11;
     status = 12;
     traffic = 13;
+    admin = 14;
   }
 
   enum DateTimeType {
@@ -519,4 +520,6 @@ message Options {
   uint32 path_speed_freeflow = 65;                                 // set freeflow speed on edges in discovered route
   repeated uint32 path_speed_predicted = 66;                       // set predicted speeds on edges in discovered route
   repeated TrafficSegment traffic_segments = 67;                   // bulk speed data
-  uint32 traffic_max_retries = 68;}                                // how many times to try one speed update before adding it to failures
+  uint32 traffic_max_retries = 68;                                // how many times to try one speed update before adding it to failures
+  map<string, string> admin_args = 69;                             // pass-through KV for /admin action (action, org_id, etc.)
+}

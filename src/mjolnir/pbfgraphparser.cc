@@ -2001,7 +2001,7 @@ struct graph_parser {
       s << lua.rdbuf();
       return s.str();
     }
-    s << lua_graph_lua;
+    s.write(reinterpret_cast<const char*>(lua_graph_lua), lua_graph_lua_len);
     return s.str();
   }
 

@@ -5,6 +5,7 @@
 #include "proto_conversions.h"
 #include "sif/autocost.h"
 #include "sif/bicyclecost.h"
+#include "sif/costfilter.h"
 #include "sif/hierarchylimits.h"
 #include "sif/motorcyclecost.h"
 #include "sif/motorscootercost.h"
@@ -12,8 +13,8 @@
 #include "sif/pedestriancost.h"
 #include "sif/transitcost.h"
 #include "sif/truckcost.h"
-
-#include <boost/optional.hpp>
+// #include "config.h"
+// #include "worker.h"
 
 using namespace valhalla::baldr;
 using namespace valhalla::midgard;
@@ -204,7 +205,7 @@ DynamicCost::DynamicCost(const Costing& costing,
       top_speed_(costing.options().top_speed()), fixed_speed_(costing.options().fixed_speed()),
       filter_closures_(ignore_closures_ ? false : costing.filter_closures()),
       penalize_uturns_(penalize_uturns), is_hgv_(costing.type() == Costing::truck),
-      min_linear_cost_factor_(1.) {
+      min_linear_cost_factor_(1.), filter_(costing) {
 
   // set user supplied hierarchy limits if present, fill the other
   // required levels up with sentinel values (clamping to config supplied limits/defaults is handled

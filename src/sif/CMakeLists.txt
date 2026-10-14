@@ -8,6 +8,7 @@ endif()
 set(sources
   autocost.cc
   bicyclecost.cc
+  costfilter.cc
   motorcyclecost.cc
   motorscootercost.cc
   nocost.cc

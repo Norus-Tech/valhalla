@@ -77,6 +77,11 @@ odin_worker_t::work(const std::list<zmq::message_t>& job,
         result = to_response(response, info, request);
         break;
       }
+      case Options::traffic: {
+        // do nothing, for now
+        result = to_response("{}", info, request);
+        break;
+      }
       default: {
         // narrate them and serialize them along
         auto response = narrate(request);

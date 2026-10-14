@@ -14,6 +14,9 @@
 #include <string>
 #include <unordered_set>
 
+#include <google/protobuf/text_format.h>
+#include <google/protobuf/util/json_util.h>
+
 using namespace valhalla;
 using namespace valhalla::midgard;
 using namespace valhalla::baldr;
@@ -141,6 +144,13 @@ void loki_worker_t::parse_costing(Api& api, bool allow_none) {
     }
     if (exclusion_detected) {
       add_warning(api, 208);
+    }
+  }
+  CostFilter::ParseFilters(config, options);
+  for (auto &kv: *options.mutable_costings()) {
+    const auto& name = Costing_Enum_Name(options.costing_type());
+    if (!kv.second.has_filter()) {
+      LOG_WARN("After parse, no filter for '" + name + "!!");
     }
   }
 
@@ -290,7 +300,7 @@ void loki_worker_t::resolve_linear_cost_factors(Api& api) {
 
 loki_worker_t::loki_worker_t(const boost::property_tree::ptree& config,
                              const std::shared_ptr<baldr::GraphReader>& graph_reader)
-    : service_worker_t(config), config(config),
+  : service_worker_t(config), config(config),
       reader(graph_reader ? graph_reader
                           : std::make_shared<baldr::GraphReader>(config.get_child("mjolnir"))),
       search_(*reader),
@@ -579,6 +589,13 @@ loki_worker_t::work(const std::list<zmq::message_t>& job,
         break;
       case Options::tile:
         result = to_response(render_tile(request), info, request, mvt_headers);
+        break;
+      case Options::traffic:
+        route(request);
+        result.messages.emplace_back(request.SerializeAsString());
+        break;
+      case Options::admin:
+        result = to_response(admin(request), info, request);
         break;
       default:
         // apparently you wanted something that we figured we'd support but havent written yet

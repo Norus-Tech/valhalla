@@ -25,6 +25,7 @@ set(sources
   status_action.cc
   trace_attributes_action.cc
   trace_route_action.cc
+  traffic_action.cc
   triplegbuilder_utils.h)
 
 set(system_includes
@@ -46,6 +47,7 @@ valhalla_module(NAME thor
     PRIVATE
       ${rapidjson_include_dir}
       ${unordered_dense_include_dir}
+      ${VALHALLA_SOURCE_DIR}/third_party/microtar/src
 
   DEPENDS
     valhalla::proto

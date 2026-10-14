@@ -96,6 +96,9 @@ constexpr uint32_t kMaxDensity = 15;
 // Unlimited speed limit. In OSM maxspeed=none. Set to max value to signify
 // unlimited.
 constexpr uint8_t kUnlimitedSpeedLimit = std::numeric_limits<uint8_t>::max();
+ 
+// default speed if you want to just use a reasonable-enough default
+ constexpr uint8_t kDefaultSpeedLimit = 30;
 
 // The max assumed speed we know from static data
 constexpr uint8_t kMaxAssumedSpeed = 140; // ~85 MPH
@@ -414,6 +417,7 @@ enum class TaggedValue : uint8_t { // must start at 1 due to nulls
   kConditionalSpeedLimits = 7,
   kLevels = 8,
   kOSMNodeIds = 9,
+  kCustomAttrs = 10,
   // we used to have bug when we encoded 1 and 2 as their ASCII codes, but not actual 1 and 2 values
   // see https://github.com/valhalla/valhalla/issues/3262
   kTunnel = static_cast<uint8_t>('1'),

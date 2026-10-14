@@ -3,6 +3,7 @@
 #include "filesystem_utils.h"
 #include "loki/worker.h"
 #include "proto/status.pb.h"
+#include "loki/build_state.h"
 
 using namespace valhalla::baldr;
 
@@ -52,6 +53,17 @@ void loki_worker_t::status(Api& request) const {
           Options_Action_Enum_Name(static_cast<Options::Action>(i));
 
   // only return more info if explicitly asked for (can be very expensive)
+  // active build state -- cheap, always included
+  const auto build = ActiveBuild::instance().get();
+  if (build.active) {
+    auto* ab = status->mutable_active_build();
+    ab->set_type(build.type);
+    ab->set_org_id(build.org_id);
+    // seconds since epoch
+    ab->set_started_at(std::chrono::duration_cast<std::chrono::seconds>(
+        build.started_at.time_since_epoch()).count());
+  }
+
   if (!request.options().verbose() || !allow_verbose)
     return;
 

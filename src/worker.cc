@@ -1331,6 +1331,37 @@ void from_json(rapidjson::Document& doc, Options::Action action, Api& api) {
   doc.AddMember({"language", allocator}, {options.language(), allocator}, allocator);
   doc.AddMember({"format", allocator},
                 {valhalla::Options_Format_Enum_Name(options.format()), allocator}, allocator);
+  // get filter args
+  auto filter_args = rapidjson::get_child_optional(doc, "/filter_args");
+  if (filter_args) {
+    auto& pbf_args = *options.mutable_filter_args();
+    for (const auto &kv : filter_args->GetObject()) {
+      pbf_args[kv.name.GetString()] = kv.value.GetString();
+    }
+  }
+  // get admin args (pass-through KV for /admin action)
+  auto admin_args = rapidjson::get_child_optional(doc, "/admin_args");
+  if (admin_args) {
+    auto& pbf_args = *options.mutable_admin_args();
+    for (const auto &kv : admin_args->GetObject()) {
+      pbf_args[kv.name.GetString()] = kv.value.GetString();
+    }
+  }
+
+  //speed settings
+  options.set_path_speed_live (
+      rapidjson::get<uint32_t>(doc, "/path_speed_live", 0));
+  options.set_path_speed_constrained (
+      rapidjson::get<uint32_t>(doc, "/path_speed_constrained", 0));
+  options.set_path_speed_freeflow (
+      rapidjson::get<uint32_t>(doc, "/path_speed_freeflow", 0));
+  auto predicted_speeds_json =
+    rapidjson::get_optional<rapidjson::Value::ConstArray>(doc, "/path_speed_predicted");
+  if (predicted_speeds_json) {
+    for (const auto& speed : *predicted_speeds_json) {
+      options.add_path_speed_predicted(speed.GetUint());
+    }
+  }
 }
 
 } // namespace

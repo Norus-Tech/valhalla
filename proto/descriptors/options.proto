@@ -362,6 +362,16 @@ message Costing {
     oneof has_low_class_factor {
       float low_class_factor = 97;
     }
+    map<string, string> filter_args = 100;
+  }
+
+  message Filter {
+    string tag = 1;
+    // for leaves
+    oneof has_data {
+      string data = 2;
+    }
+    repeated Filter children = 3;
   }
 
   oneof has_options {
@@ -376,6 +386,10 @@ message Costing {
   oneof has_filter_closures {
     bool filter_closures = 4;
   }
+
+  oneof has_filter {
+    Filter filter = 5;
+  }
 }
 
 message LinearFeatureCost {
@@ -383,6 +397,16 @@ message LinearFeatureCost {
   repeated Location shape = 2;                                   // This is where the actual line geometry goes
   double cost_factor = 3;
   bool ignore_access_restrictions = 4;                           // whether to ignore all restrictions along this shape
+}
+
+// in options.proto
+message TrafficSegment {
+  repeated Location locations = 1;
+  uint32 path_speed_live = 2;               // set live speed on edges in discovered route
+  uint32 path_speed_constrained = 3;        // set constrained speed on edges in discovered route
+  uint32 path_speed_freeflow = 4;           // set freeflow speed on edges in discovered route
+  repeated uint32 path_speed_predicted = 5; // set predicted speeds on edges in discovered route
+  uint32 retries = 6;                       // per-segment override; 0 = use global default
 }
 
 message Options {
@@ -416,6 +440,8 @@ message Options {
     centroid = 11;
     status = 12;
     tile = 13;
+    traffic = 14;
+    admin = 15;
   }
 
   enum DateTimeType {
@@ -552,4 +578,15 @@ message Options {
   TileOptions tile_options = 64;                                   // additional /tile specific options
   repeated Levels exclude_levels = 65;                             // Levels to exclude within the exclude_polygon at the same index
   uint32 expansion_max_distance = 66;                              // Maximum path distance in meters for expansion. 0 = disabled.
+  oneof has_filter {
+    Costing.Filter filter = 70;
+  }
+  map<string, string> filter_args = 71;
+  uint32 path_speed_live = 72;                                     // set live speed on edges in discovered route
+  uint32 path_speed_constrained = 73;                              // set constrained speed on edges in discovered route
+  uint32 path_speed_freeflow = 74;                                 // set freeflow speed on edges in discovered route
+  repeated uint32 path_speed_predicted = 75;                       // set predicted speeds on edges in discovered route
+  repeated TrafficSegment traffic_segments = 76;                   // bulk speed data
+  uint32 traffic_max_retries = 77;                                 // how many times to try one speed update before adding it to failures
+  map<string, string> admin_args = 78;                             // pass-through KV for /admin action (action, org_id, etc.)
 }

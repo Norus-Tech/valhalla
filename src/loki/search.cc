@@ -62,7 +62,8 @@ bool search_filter(const DirectedEdge* edge,
          (filter.exclude_ferry() && (edge->use() == Use::kFerry || edge->use() == Use::kRailFerry)) ||
          (filter.exclude_closures() && (costing.flow_mask() & kCurrentFlowMask) &&
           tile->IsClosed(edge)) ||
-         (filter.level() != kMaxLevel && !tile->edgeinfo(edge).includes_level(filter.level()));
+         (filter.level() != kMaxLevel && !tile->edgeinfo(edge).includes_level(filter.level())) ||
+         costing.isFiltered(edge, tile);
 }
 
 bool side_filter(const valhalla::PathEdge& edge, const Location& location, GraphReader& reader) {

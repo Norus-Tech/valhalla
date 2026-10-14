@@ -969,13 +969,14 @@ void BuildTileSet(const std::string& ways_file,
             uint16_t types = 0;
 
             std::vector<std::string> names, tagged_values, linguistics;
+            std::unordered_map<std::string,std::string> custom_attributes;
             w.GetNames(ref, osmdata.name_offset_map, pronunciationMap, langMap, default_languages,
                        ref_index, ref_lang_index, name_index, name_lang_index, official_name_index,
                        official_name_lang_index, alt_name_index, alt_name_lang_index, types, names,
                        linguistics, type, diff_names);
             w.GetTaggedValues(osmdata.name_offset_map, pronunciationMap, langMap, default_languages,
                               tunnel_index, tunnel_lang_index, names.size(), tagged_values,
-                              linguistics, type, diff_names);
+                              linguistics, custom_attributes, type, diff_names);
 
             // Append conditional limits as tagged values
             const auto cond_limits_range = osmdata.conditional_speeds.equal_range(w.way_id());
@@ -1006,7 +1007,8 @@ void BuildTileSet(const std::string& ways_file,
                 graphtile.AddEdgeInfo(edge_pair.second, (*nodes[source]).graph_id,
                                       (*nodes[target]).graph_id, wayid, kNoElevationData,
                                       bike_network, speed_limit, shape, names, tagged_values,
-                                      linguistics, types, added, (diff_names || dual_refs));
+                                      linguistics, custom_attributes, types, added,
+                                      (diff_names || dual_refs));
 
             if (added) {
               stats.edgeinfocount++;

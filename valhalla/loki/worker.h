@@ -9,6 +9,7 @@
 #include <valhalla/midgard/pointll.h>
 #include <valhalla/proto/options.pb.h>
 #include <valhalla/sif/costfactory.h>
+#include <valhalla/sif/costfilter.h>
 #include <valhalla/skadi/sample.h>
 #include <valhalla/worker.h>
 
@@ -44,6 +45,8 @@ public:
   std::string transit_available(Api& request);
   void status(Api& request) const;
   std::string render_tile(Api& request);
+  void traffic(Api& request);
+  std::string admin(Api& request);
 
   void set_interrupt(const std::function<void()>* interrupt) override;
 
@@ -59,6 +62,7 @@ protected:
   void parse_trace(Api& request);
   void parse_costing(Api& request, bool allow_none = false);
   void resolve_linear_cost_factors(Api& request);
+  void parse_filters(const boost::property_tree::ptree&, Options&);
   void locations_from_shape(Api& request);
   void check_hierarchy_distance(Api& request);
 

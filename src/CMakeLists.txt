@@ -159,7 +159,9 @@ if (UNIX AND ENABLE_SINGLE_FILES_WERROR)
   set_source_files_properties(proto_conversions.cc PROPERTIES COMPILE_FLAGS "-Wall -Werror")
 endif()
 
-add_library(valhalla ${valhalla_src})
+add_library(valhalla ${valhalla_src}
+        ${VALHALLA_SOURCE_DIR}/third_party/microtar/src/microtar.h
+        ${VALHALLA_SOURCE_DIR}/third_party/microtar/src/microtar.c)
 set_target_properties(valhalla PROPERTIES FOLDER "Library")
 create_source_groups("Source Files" ${valhalla_src})
 

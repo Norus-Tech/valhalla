@@ -5,6 +5,7 @@ set(sources
   height_action.cc
   reach.cc
   matrix_action.cc
+  admin_action.cc
   status_action.cc
   transit_available_action.cc
   polygon_search.cc
@@ -17,6 +18,7 @@ set(sources
   search.cc
   tile_action.cc
   trace_route_action.cc
+  traffic_action.cc
   worker.cc)
 
 set(system_includes
@@ -33,6 +35,7 @@ valhalla_module(NAME loki
     PRIVATE
       ${rapidjson_include_dir}
       ${CMAKE_BINARY_DIR}
+      ${VALHALLA_SOURCE_DIR}/third_party/microtar/src
   SYSTEM_INCLUDE_DIRECTORIES
     PUBLIC
       ${system_includes}

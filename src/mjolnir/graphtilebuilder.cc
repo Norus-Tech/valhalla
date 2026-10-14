@@ -726,10 +726,12 @@ bool GraphTileBuilder::HasEdgeInfo(const uint32_t edgeindex,
 
 void GraphTileBuilder::ProcessTaggedValues([[maybe_unused]] const uint32_t edgeindex,
                                            const std::vector<std::string>& names,
+                                           const std::unordered_map<std::string,std::string>& custom_attributes,
                                            size_t& name_count,
                                            std::vector<NameInfo>& name_info_list) {
-  auto encode_tag =
-      std::string(1, static_cast<std::string::value_type>(valhalla::baldr::TaggedValue::kLinguistic));
+  auto encode_tag = [](TaggedValue tag) {
+    return std::string(1, static_cast<std::string::value_type>(tag));
+  };
   if (names.size()) {
     if (name_count != kMaxNamesPerEdge) {
       std::stringstream ss;
@@ -738,7 +740,7 @@ void GraphTileBuilder::ProcessTaggedValues([[maybe_unused]] const uint32_t edgei
       }
 
       // Add linguistics and add its offset to edge info's list.
-      NameInfo ni{AddName(encode_tag + ss.str())};
+      NameInfo ni{AddName(encode_tag(valhalla::baldr::TaggedValue::kLinguistic) + ss.str())};
 
       ni.is_route_num_ = 0;
       ni.tagged_ = 1;
@@ -747,6 +749,27 @@ void GraphTileBuilder::ProcessTaggedValues([[maybe_unused]] const uint32_t edgei
     } else {
       LOG_DEBUG("Too many names for edgeindex: " + std::to_string(edgeindex));
       build_stats::get().increment(build_stats::kExceededMaxNames);
+    }
+  }
+
+  // custom attributes, we'll use one name slot
+  if (!custom_attributes.empty()) {
+    if (name_count == kMaxNamesPerEdge) {
+      LOG_WARN("Too many names for edgeindex: " + std::to_string(edgeindex));
+    } else {
+      std::ostringstream ss;
+      bool cont;
+      for (const auto& kv: custom_attributes) {
+        if (cont) ss << "\n";
+        ss << kv.first << "\t" << kv.second;
+        cont = true;
+      }
+      // Add name and add its offset to edge info's list.
+      NameInfo ni{AddName(encode_tag(valhalla::baldr::TaggedValue::kCustomAttrs) + ss.str())};
+      ni.is_route_num_ = 0;
+      ni.tagged_ = 1;
+      name_info_list.emplace_back(ni);
+      ++name_count;
     }
   }
 }
@@ -764,6 +787,7 @@ uint32_t GraphTileBuilder::AddEdgeInfo(const uint32_t edgeindex,
                                        const std::vector<std::string>& names,
                                        const std::vector<std::string>& tagged_values,
                                        const std::vector<std::string>& linguistics,
+                                       const std::unordered_map<std::string,std::string>& custom_attributes,
                                        const uint16_t types,
                                        bool& added,
                                        bool diff_names) {
@@ -826,7 +850,7 @@ uint32_t GraphTileBuilder::AddEdgeInfo(const uint32_t edgeindex,
       }
     }
 
-    ProcessTaggedValues(edgeindex, linguistics, name_count, name_info_list);
+    ProcessTaggedValues(edgeindex, linguistics, custom_attributes, name_count, name_info_list);
 
     edgeinfo.set_name_info_list(name_info_list);
 
@@ -860,6 +884,7 @@ template uint32_t GraphTileBuilder::AddEdgeInfo<std::vector<PointLL>>(const uint
                                                                       const std::vector<std::string>&,
                                                                       const std::vector<std::string>&,
                                                                       const std::vector<std::string>&,
+                                                                      const std::unordered_map<std::string,std::string>&,
                                                                       const uint16_t,
                                                                       bool&,
                                                                       bool);
@@ -874,6 +899,7 @@ template uint32_t GraphTileBuilder::AddEdgeInfo<std::list<PointLL>>(const uint32
                                                                     const std::vector<std::string>&,
                                                                     const std::vector<std::string>&,
                                                                     const std::vector<std::string>&,
+                                                                    const std::unordered_map<std::string,std::string>&,
                                                                     const uint16_t,
                                                                     bool&,
                                                                     bool);
@@ -890,6 +916,7 @@ uint32_t GraphTileBuilder::AddEdgeInfo(const uint32_t edgeindex,
                                        const std::vector<std::string>& names,
                                        const std::vector<std::string>& tagged_values,
                                        const std::vector<std::string>& linguistics,
+                                       const std::unordered_map<std::string,std::string>& custom_attributes,
                                        const uint16_t types,
                                        bool& added,
                                        bool diff_names) {
@@ -952,7 +979,8 @@ uint32_t GraphTileBuilder::AddEdgeInfo(const uint32_t edgeindex,
       }
     }
 
-    ProcessTaggedValues(edgeindex, linguistics, name_count, name_info_list);
+    ProcessTaggedValues(edgeindex, linguistics, custom_attributes, name_count, name_info_list);
+
     edgeinfo.set_name_info_list(name_info_list);
 
     // Add to the map

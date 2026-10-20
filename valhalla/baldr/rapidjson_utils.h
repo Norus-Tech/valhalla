@@ -339,11 +339,19 @@ public:
     } else if constexpr (std::is_same_v<V, int64_t> || std::is_same_v<V, long long>) {
       writer.Int64(value);
     } else if constexpr (std::is_same_v<V, double> || std::is_same_v<V, float>) {
-      writer.Double(value);
+      if (std::isnan(value)) {
+        writer.Null();
+      } else {
+        writer.Double(value);
+      }
     } else if constexpr (std::is_same_v<V, bool>) {
       writer.Bool(value);
     } else if constexpr (std::is_same_v<V, std::nullptr_t>) {
       writer.Null();
+    } else if constexpr (std::is_same_v<V, std::string_view>) {
+      writer.String(value.data(), value.size());
+    } else if constexpr (std::is_same_v<V, const char*>) {
+      writer.String(value, std::strlen(value));
     } else if constexpr (is_string_like_v<V>) {
       writer.String(value);
     } else {

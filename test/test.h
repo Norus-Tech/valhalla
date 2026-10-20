@@ -21,12 +21,6 @@
 #include <unordered_map>
 #include <vector>
 
-#ifndef _MSC_VER
-#include <sys/mman.h>
-#endif
-
-#include <sys/stat.h>
-
 namespace test {
 
 // Return a random number inside [0, 1)
@@ -74,6 +68,16 @@ encoded_shape_equality(const std::string& expected, const std::string& actual, d
   auto actual_shp = valhalla::midgard::decode<std::vector<valhalla::midgard::PointLL>>(actual);
   return shape_equality(expected_shp, actual_shp, tolerance);
 }
+
+/**
+ * Deep compares rapidjson::Value, descending into arrays & objects.
+ *
+ * FAIL()s when the both args aren't equal.
+ *
+ * @param j1 the actual JSON
+ * @param j2 the expected JSON
+ */
+void json_equality(const rapidjson::Value& j1, const rapidjson::Value& j2);
 
 /**
  * Generate a new GraphReader that doesn't re-use a previously

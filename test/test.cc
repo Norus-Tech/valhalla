@@ -18,14 +18,60 @@
 #include <stdexcept>
 #include <string>
 
-#ifndef _MSC_VER
-#include <sys/mman.h>
-#endif
-
-#include <fcntl.h>
-#include <sys/stat.h>
-
 namespace {
+bool json_deep_equality(const rapidjson::Value& j1, const rapidjson::Value& j2) {
+  if (j1.GetType() != j2.GetType())
+    return false;
+
+  switch (j1.GetType()) {
+    case rapidjson::kNullType:
+      return true;
+    case rapidjson::kFalseType:
+      return true;
+    case rapidjson::kTrueType:
+      return true;
+
+    case rapidjson::kStringType:
+      return j1.GetStringLength() == j2.GetStringLength() &&
+             std::memcmp(j1.GetString(), j2.GetString(), j1.GetStringLength()) == 0;
+
+    case rapidjson::kNumberType: {
+      if (j1.IsInt() && j2.IsInt())
+        return j1.GetInt() == j2.GetInt();
+      if (j1.IsUint() && j2.IsUint())
+        return j1.GetUint() == j2.GetUint();
+      if (j1.IsInt64() && j2.IsInt64())
+        return j1.GetInt64() == j2.GetInt64();
+      if (j1.IsUint64() && j2.IsUint64())
+        return j1.GetUint64() == j2.GetUint64();
+      return j1.GetDouble() == j2.GetDouble();
+    }
+
+    case rapidjson::kArrayType: {
+      if (j1.Size() != j2.Size())
+        return false;
+      for (rapidjson::SizeType i = 0; i < j1.Size(); ++i)
+        if (!json_deep_equality(j1[i], j2[i]))
+          return false;
+      return true;
+    }
+
+    case rapidjson::kObjectType: {
+      if (j1.MemberCount() != j2.MemberCount())
+        return false;
+      for (auto ia = j1.MemberBegin(); ia != j1.MemberEnd(); ++ia) {
+        auto ib = j2.FindMember(ia->name);
+        if (ib == j2.MemberEnd())
+          return false;
+        if (!json_deep_equality(ia->value, ib->value))
+          return false;
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
 // TODO: this should support boost::property_tree::path
 // like get_child does to make it obvious that it supports
 // the path separator notation for specifying sub children
@@ -58,28 +104,8 @@ bool remove_child(boost::property_tree::ptree& pt, const std::string& path) {
 
 namespace test {
 
-struct MMap {
-  MMap(const char* filename) {
-    fd = open(filename, O_RDWR);
-    struct stat s;
-#ifdef _MSC_VER
-    _fstat64(fd, &s);
-#else
-    fstat(fd, &s);
-#endif
-    data = mmap(0, s.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    length = s.st_size;
-  }
-
-  ~MMap() {
-    munmap(data, length);
-    close(fd);
-  }
-
-  int fd;
-  void* data;
-  size_t length;
-};
+// a memmap that we can write to for traffic tar testing
+using MMap = valhalla::midgard::mem_map<char>;
 
 class MMapGraphMemory final : public valhalla::baldr::GraphMemory {
 public:
@@ -121,14 +147,18 @@ boost::property_tree::ptree make_config(const std::string& path_prefix,
 
   std::string defaults = R"(
     {
+      "logging": {
+        "color": false,
+        "type": "std_out"
+      },
       "additional_data": {
         "elevation": "%%/elevation/"
       },
       "httpd": {
         "service": {
-          "interrupt": "ipc://%%/interrupt",
-          "listen": "ipc://%%/listen",
-          "loopback": "ipc://%%/loopback"
+          "interrupt": "inproc://%%/interrupt",
+          "listen": "tcp://127.0.0.1:8002",
+          "loopback": "inproc://%%/loopback"
         }
       },
       "loki": {
@@ -146,12 +176,8 @@ boost::property_tree::ptree make_config(const std::string& path_prefix,
           "centroid",
           "status"
         ],
-        "logging": {
-          "color": false,
-          "type": "std_out"
-        },
         "service": {
-          "proxy": "ipc://%%/loki"
+          "proxy": "inproc://%%/loki"
         },
         "service_defaults": {
           "heading_tolerance": 60,
@@ -160,7 +186,9 @@ boost::property_tree::ptree make_config(const std::string& path_prefix,
           "radius": 0,
           "search_cutoff": 35000,
           "street_side_max_distance": 1000,
-          "street_side_tolerance": 5
+          "street_side_tolerance": 5,
+          "mvt_min_zoom_road_class": [7, 7, 8, 10, 11, 11, 13, 14],
+          "mvt_cache_min_zoom": 11
         },
         "use_connectivity": true
       },
@@ -214,7 +242,7 @@ boost::property_tree::ptree make_config(const std::string& path_prefix,
           "turn_penalty_factor": 100
         },
         "service": {
-          "proxy": "ipc://%%/meili"
+          "proxy": "inproc://%%/meili"
         },
         "verbose": false
       },
@@ -241,10 +269,6 @@ boost::property_tree::ptree make_config(const std::string& path_prefix,
         "include_construction": true,
         "include_driving": true,
         "include_pedestrian": true,
-        "logging": {
-          "color": false,
-          "type": "std_out"
-        },
         "lru_mem_cache_hard_control": false,
         "max_cache_size": 1000000000,
         "max_concurrent_reader_users": 1,
@@ -259,12 +283,8 @@ boost::property_tree::ptree make_config(const std::string& path_prefix,
         "use_lru_mem_cache": false
       },
       "odin": {
-        "logging": {
-          "color": false,
-          "type": "std_out"
-        },
         "service": {
-          "proxy": "ipc://%%/odin"
+          "proxy": "inproc://%%/odin"
         }
       },
       "service_limits": {
@@ -286,6 +306,11 @@ boost::property_tree::ptree make_config(const std::string& path_prefix,
           "max_matrix_distance": 200000.0,
           "max_matrix_location_pairs": 2500
         },
+        "auto_pedestrian": {
+          "max_distance": 500000.0,
+          "max_matrix_distance": 200000.0,
+          "max_matrix_location_pairs": 2500
+        },
         "bus": {
           "max_distance": 5000000.0,
           "max_locations": 50,
@@ -302,7 +327,8 @@ boost::property_tree::ptree make_config(const std::string& path_prefix,
                 "max_allowed_up_transitions": {
                     "1": 400,
                     "2": 100
-                }
+                },
+                "max_expand_within_distance": {"0": 1e8, "1": 100000, "2": 5000}
             },
             "unidirectional_astar": {
                 "max_allowed_up_transitions": {
@@ -329,6 +355,8 @@ boost::property_tree::ptree make_config(const std::string& path_prefix,
         "max_alternates": 2,
         "max_exclude_locations": 50,
         "max_exclude_polygons_length": 10000,
+        "min_linear_cost_factor": 1,
+        "max_linear_cost_edges": 50000,
         "max_radius": 200,
         "max_reachability": 100,
         "max_timedep_distance": 500000,
@@ -356,8 +384,8 @@ boost::property_tree::ptree make_config(const std::string& path_prefix,
           "max_locations": 50,
           "max_matrix_distance": 200000.0,
           "max_matrix_location_pairs": 2500,
-          "max_transit_walking_distance": 10000,
-          "min_transit_walking_distance": 1
+          "max_multimodal_walking_distance": 10000,
+          "min_multimodal_walking_distance": 1
         },
         "skadi": {
           "max_shape": 750000,
@@ -394,13 +422,8 @@ boost::property_tree::ptree make_config(const std::string& path_prefix,
         }
       },
       "thor": {
-        "logging": {
-          "color": false,
-          "long_request": 110.0,
-          "type": "std_out"
-        },
         "service": {
-          "proxy": "ipc://%%/thor"
+          "proxy": "inproc://%%/thor"
         },
         "source_to_target_algorithm": "select_optimal",
         "costmatrix": {
@@ -541,7 +564,9 @@ void build_live_traffic_data(const boost::property_tree::ptree& config,
 
       /* Write strings to files `test1.txt` and `test2.txt` */
       std::string blanktile = buffer.str();
-      std::string filename = valhalla::baldr::GraphTile::FileSuffix(tile_id);
+      // tar entries always use forward slash, even on windows
+      std::string filename =
+          valhalla::baldr::GraphTile::FileSuffix(tile_id, valhalla::baldr::SUFFIX_NON_COMPRESSED);
       auto e1 = mtar_write_file_header(&tar, filename.c_str(), blanktile.size());
       if (e1 != MTAR_ESUCCESS) {
         throw std::runtime_error("Could not write tar-file header");
@@ -567,12 +592,13 @@ void customize_live_traffic_data(const boost::property_tree::ptree& config,
                                  const LiveTrafficCustomize& setter_cb) {
   // Now we have the tar-file and can go ahead with per edge customizations
   {
+    const auto traffic_path = config.get<std::string>("mjolnir.traffic_extract");
     const auto memory =
-        std::make_shared<MMap>(config.get<std::string>("mjolnir.traffic_extract").c_str());
+        std::make_shared<MMap>(traffic_path, std::filesystem::file_size(traffic_path));
 
     mtar_t tar;
     tar.pos = 0;
-    tar.stream = memory->data;
+    tar.stream = memory->get();
     tar.read = [](mtar_t* tar, void* data, unsigned size) -> int {
       memcpy(data, reinterpret_cast<char*>(tar->stream) + tar->pos, size);
       return MTAR_ESUCCESS;
@@ -604,6 +630,14 @@ void customize_live_traffic_data(const boost::property_tree::ptree& config,
       }
       mtar_next(&tar);
     }
+  }
+}
+
+void json_equality(const rapidjson::Value& j1, const rapidjson::Value& j2) {
+  const bool are_equal = json_deep_equality(j1, j2);
+  if (!are_equal) {
+    FAIL() << "JSON not equal:\nactual" << rapidjson::to_string(j1)
+           << "\nexpected: " << rapidjson::to_string(j2);
   }
 }
 

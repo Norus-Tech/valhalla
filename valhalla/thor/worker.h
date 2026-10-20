@@ -9,12 +9,12 @@
 #include <valhalla/proto/options.pb.h>
 #include <valhalla/proto/trip.pb.h>
 #include <valhalla/sif/costfactory.h>
-#include <valhalla/thor/astar_bss.h>
 #include <valhalla/thor/bidirectional_astar.h>
 #include <valhalla/thor/centroid.h>
 #include <valhalla/thor/costmatrix.h>
 #include <valhalla/thor/isochrone.h>
-#include <valhalla/thor/multimodal.h>
+#include <valhalla/thor/multimodal_astar.h>
+#include <valhalla/thor/multimodal_transit.h>
 #include <valhalla/thor/timedistancebssmatrix.h>
 #include <valhalla/thor/timedistancematrix.h>
 #include <valhalla/thor/unidirectional_astar.h>
@@ -39,7 +39,11 @@ void run_service(const boost::property_tree::ptree& config);
 
 class thor_worker_t : public service_worker_t {
 public:
-  enum SOURCE_TO_TARGET_ALGORITHM { SELECT_OPTIMAL = 0, COST_MATRIX = 1, TIME_DISTANCE_MATRIX = 2 };
+  enum SOURCE_TO_TARGET_ALGORITHM : uint8_t {
+    SELECT_OPTIMAL = 0,
+    COST_MATRIX = 1,
+    TIME_DISTANCE_MATRIX = 2
+  };
   thor_worker_t(const boost::property_tree::ptree& config,
                 const std::shared_ptr<baldr::GraphReader>& graph_reader = {});
   virtual ~thor_worker_t();
@@ -50,7 +54,7 @@ public:
 #endif
   virtual void cleanup() override;
 
-  static void adjust_scores(valhalla::Options& options);
+  static void adjust_locations(valhalla::Api& options);
 
   void route(Api& request);
   std::string matrix(Api& request);
@@ -71,12 +75,12 @@ protected:
                                                     Location& origin,
                                                     Location& destination,
                                                     const std::string& costing,
-                                                    const Options& options);
+                                                    Api& request);
   void log_admin(const TripLeg&);
   thor::PathAlgorithm* get_path_algorithm(const std::string& routetype,
                                           const Location& origin,
                                           const Location& destination,
-                                          const Options& options);
+                                          Api& request);
   thor::MatrixAlgorithm*
   get_matrix_algorithm(Api& request, const bool has_time, const std::string& costing);
   void route_match(Api& request);
@@ -115,8 +119,8 @@ protected:
 
   // Path algorithms (TODO - perhaps use a map?))
   BidirectionalAStar bidir_astar;
-  AStarBSSAlgorithm bss_astar;
-  MultiModalPathAlgorithm multi_modal_astar;
+  MultimodalAStar multimodal_astar;
+  MultiModalPathAlgorithm multi_modal_transit;
   TimeDepForward timedep_forward;
   TimeDepReverse timedep_reverse;
 

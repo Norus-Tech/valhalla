@@ -4,9 +4,10 @@ import json
 import os
 from pathlib import Path
 import re
-from tempfile import NamedTemporaryFile
+from tempfile import TemporaryDirectory
 import unittest
-from valhalla import Actor, get_config, VALHALLA_PYTHON_PACKAGE, VALHALLA_PRINT_VERSION
+from valhalla import Actor, ValhallaError, get_config, VALHALLA_PRINT_VERSION
+from valhalla.valhalla_build_config import config as default_config
 
 
 PWD = Path(os.path.dirname(os.path.abspath(__file__)))
@@ -30,13 +31,12 @@ class TestBindings(unittest.TestCase):
         cls.actor = Actor(str(PWD.joinpath('valhalla.json')))
 
     def test_version_python_package_constant(self):
-        self.assertIn("pyvalhalla", VALHALLA_PYTHON_PACKAGE)
 
         # The CMake build of course doesn't have the setuptools-scm generated __version__.py
         try:
             from valhalla import __version__
             from valhalla.__version__ import __version_tuple__
-        except ModuleNotFoundError:
+        except (ModuleNotFoundError, ImportError):
             return
         
         self.assertEqual(".".join([str(x) for x in __version_tuple__[:3]]), VALHALLA_PRINT_VERSION)
@@ -44,10 +44,6 @@ class TestBindings(unittest.TestCase):
         version_modifier = VALHALLA_PRINT_VERSION[VALHALLA_PRINT_VERSION.find("-"):]
         if version_modifier:
             self.assertIn(version_modifier, __version__)
-        else:
-            # for releases there should always be a version modifier,
-            # as they're guaranteed to be run by CI
-            self.assertNotEqual("pyvalhalla", VALHALLA_PYTHON_PACKAGE)
 
     def test_config(self):
         config = get_config(self.extract_path, self.tiles_path)
@@ -65,6 +61,21 @@ class TestBindings(unittest.TestCase):
     def test_config_no_tiles(self):
         with self.assertRaises(FileNotFoundError):
             get_config("valhalla_tiles")
+
+    def test_endpoints_are_callable(self):
+        # Smoke test: every action in loki.actions must be present as a
+        # callable wrapper on Actor itself, not merely inherited from _Actor —
+        # without a Python wrapper the dict/str input conversion doesn't apply.
+        # sources_to_targets is the JSON action name; pyvalhalla exposes it as
+        # matrix.
+        endpoints = [
+            "matrix" if a == "sources_to_targets" else a
+            for a in default_config["loki"]["actions"]
+        ]
+        for name in endpoints:
+            with self.subTest(endpoint=name):
+                self.assertIn(name, Actor.__dict__, f"Actor.{name} is missing a Python wrapper")
+                self.assertTrue(callable(getattr(self.actor, name)))
 
     def test_route(self):
         query = {
@@ -120,16 +131,66 @@ class TestBindings(unittest.TestCase):
         iso = self.actor.isochrone(query)
         self.assertEqual(len(iso['features']), 6)  # 4 isochrones and the 2 point layers
 
+    def test_tile(self):
+        # Utrecht center tile coordinates (52.08778°N, 5.13142°E at zoom 14)
+        query = {
+            "tile": {
+                "z": 14,
+                "x": 8425,
+                "y": 5405
+            }
+        }
+
+        tile_data = self.actor.tile(query)
+        
+        # Verify it's bytes (MVT binary data)
+        self.assertIsInstance(tile_data, bytes, 'tile() should return bytes')
+        
+        # Verify reasonable size (at least 100 bytes, typically KB range for MVT)
+        self.assertGreaterEqual(
+            len(tile_data), 
+            100,
+            f'Tile data should be at least 100 bytes, got {len(tile_data)}'
+        )
+
+        # Test the str API (JSON string input)
+        tile_data_str = self.actor.tile(json.dumps(query))
+        self.assertIsInstance(tile_data_str, bytes)
+        # Both should return the same data
+        self.assertEqual(tile_data, tile_data_str)
+
+    def test_router_error(self):
+        query = {
+            "locations": [
+                {"lat": 0.0, "lon": 0.0},
+                {"lat": 0.1, "lon": 0.1}
+            ],
+            "costing": "auto"
+        }
+
+        with self.assertRaises(ValhallaError) as ctx:
+            self.actor.route(query)
+
+        e = ctx.exception
+        self.assertIsInstance(e, RuntimeError)
+        # structured fields from valhalla_exception_t
+        self.assertIsInstance(e.code, int)
+        self.assertEqual(e.code, 171)
+        self.assertEqual(e.http_code, 400)
+        self.assertEqual(e.message, "No suitable edges near location")
+        self.assertEqual(e.http_message, "Bad Request")
+        self.assertEqual(str(e), e.message)
+
     def test_change_config(self):
-        with NamedTemporaryFile('w+') as tmp:
+        with TemporaryDirectory() as tmp_dir:
+            config_path = os.path.join(tmp_dir, "config.json")
             config = get_config(self.extract_path, self.tiles_path)
             config['service_limits']['bicycle']['max_distance'] = 1
-            json.dump(config, tmp, indent=2)
+            with open(config_path, 'w') as f:
+                json.dump(config, f, indent=2)
 
-            tmp.seek(0)
+            actor = Actor(config_path)
 
-            actor = Actor(str(tmp.name))
-
-            with self.assertRaises(RuntimeError) as e:
+            with self.assertRaises(ValhallaError) as e:
                 actor.route(json.dumps({"locations":[{"lat":52.08813,"lon":5.03231},{"lat":52.09987,"lon":5.14913}],"costing":"bicycle","directions_options":{"language":"ru-RU"}}))
             self.assertIn('exceeds the max distance limit', str(e.exception))

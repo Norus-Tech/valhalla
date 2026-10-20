@@ -233,19 +233,19 @@ bool intermediate_loc_edge_trimming(
   auto route_two_locations = [&, this](auto& origin, auto& destination) -> bool {
     // Get the algorithm type for this location pair
     thor::PathAlgorithm* path_algorithm =
-        this->get_path_algorithm(costing, *origin, *destination, options);
+        this->get_path_algorithm(costing, *origin, *destination, request);
     path_algorithm->Clear();
     algorithms.push_back(path_algorithm->name());
     LOG_INFO(std::string("algorithm::") + path_algorithm->name());
 
     // If we are continuing through a location we need to make sure we
     // only allow the edge that was used previously (avoid u-turns)
-    if (is_through_point(*origin) && last_edge.Is_Valid()) {
+    if (is_through_point(*origin) && last_edge.is_valid()) {
       remove_path_edges(*origin,
                         [&last_edge](const auto& edge) { return edge.graph_id() != last_edge; });
     }
     // Get best path and keep it
-    auto temp_paths = this->get_path(path_algorithm, *origin, *destination, costing, options);
+    auto temp_paths = this->get_path(path_algorithm, *origin, *destination, costing, request);
     if (temp_paths.empty())
       return false;
 
@@ -336,7 +336,7 @@ bool intermediate_loc_edge_trimming(
   }
   for (const auto& edge : path) {
     auto shortcut_id = reader->GetShortcut(edge.edgeid);
-    if (!shortcut_id.Is_Valid())
+    if (!shortcut_id.is_valid())
       continue;
     auto constituents = reader->RecoverShortcut(shortcut_id);
     uint32_t speed_sum = 0, count = 0;
@@ -427,7 +427,7 @@ bool intermediate_loc_edge_trimming(
     // group edges by tile
     std::unordered_map<GraphId, std::unordered_map<uint32_t, TrafficSpeeds>> tile_speeds;
     for (const auto& [edge_id, speed] : edges_to_update) {
-      auto tile_base = edge_id.Tile_Base();
+      auto tile_base = edge_id.tile_base();
       auto& ts = tile_speeds[tile_base][edge_id.id()];
       if (write_constrained)
         ts.constrained_flow_speed = options.path_speed_constrained();

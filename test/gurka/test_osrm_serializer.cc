@@ -1,8 +1,9 @@
 #include "baldr/rapidjson_utils.h"
 #include "gurka.h"
 
-#include <boost/format.hpp>
 #include <gtest/gtest.h>
+
+#include <format>
 
 using namespace valhalla;
 
@@ -257,12 +258,13 @@ TEST(Standalone, HeadingNumber2CrossRoadAuto) {
               << "FAILED at step " << steps << ", intersection " << intersection;
 
           if (json["routes"][0]["legs"][0]["steps"][steps]["intersections"][intersection].HasMember(
-                  "bearing"))
+                  "bearing")) {
             // All bearings have the same direction which is 90
             EXPECT_EQ(json["routes"][0]["legs"][0]["steps"][steps]["intersections"][intersection]
                           ["bearing"][out_index]
                               .GetInt(),
                       90);
+          }
         }
 
         // Validate `in` edge indexes and headings.
@@ -275,12 +277,13 @@ TEST(Standalone, HeadingNumber2CrossRoadAuto) {
               << "FAILED at step " << steps << ", intersection " << intersection;
 
           if (json["routes"][0]["legs"][0]["steps"][steps]["intersections"][intersection].HasMember(
-                  "bearings"))
+                  "bearings")) {
             // All bearings have the same direction which is 270
             EXPECT_EQ(json["routes"][0]["legs"][0]["steps"][steps]["intersections"][intersection]
                           ["bearings"][in_index]
                               .GetInt(),
                       270);
+          }
         }
 
         EXPECT_EQ(expected_headings[index++], json["routes"][0]["legs"][0]["steps"][steps]
@@ -558,12 +561,10 @@ protected:
   rapidjson::Document json_request(const std::string& from,
                                    const std::string& to,
                                    const std::string& language = "en-US") {
-    const std::string& request =
-        (boost::format(
-             R"({"locations":[{"lat":%s,"lon":%s},{"lat":%s,"lon":%s}],"costing":"auto","voice_instructions":true,"language":"%s"})") %
-         std::to_string(map.nodes.at(from).lat()) % std::to_string(map.nodes.at(from).lng()) %
-         std::to_string(map.nodes.at(to).lat()) % std::to_string(map.nodes.at(to).lng()) % language)
-            .str();
+    const std::string& request = std::format(
+        R"({{"locations":[{{"lat":{:.6f},"lon":{:.6f}}},{{"lat":{:.6f},"lon":{:.6f}}}],"costing":"auto","voice_instructions":true,"language":"{}"}})",
+        map.nodes.at(from).lat(), map.nodes.at(from).lng(), map.nodes.at(to).lat(),
+        map.nodes.at(to).lng(), language);
     auto result = gurka::do_action(valhalla::Options::route, map, request);
     return gurka::convert_to_json(result, Options::Format::Options_Format_osrm);
   }
@@ -755,12 +756,10 @@ TEST(Standalone, BannerInstructions) {
 
   auto from = "A";
   auto to = "D";
-  const std::string& request =
-      (boost::format(
-           R"({"locations":[{"lat":%s,"lon":%s},{"lat":%s,"lon":%s}],"costing":"auto","banner_instructions":true})") %
-       std::to_string(map.nodes.at(from).lat()) % std::to_string(map.nodes.at(from).lng()) %
-       std::to_string(map.nodes.at(to).lat()) % std::to_string(map.nodes.at(to).lng()))
-          .str();
+  const std::string& request = std::format(
+      R"({{"locations":[{{"lat":{:.6f},"lon":{:.6f}}},{{"lat":{:.6f},"lon":{:.6f}}}],"costing":"auto","banner_instructions":true}})",
+      map.nodes.at(from).lat(), map.nodes.at(from).lng(), map.nodes.at(to).lat(),
+      map.nodes.at(to).lng());
   auto result = gurka::do_action(valhalla::Options::route, map, request);
 
   auto json = gurka::convert_to_json(result, Options::Format::Options_Format_osrm);
@@ -969,12 +968,10 @@ TEST(Standalone, BannerInstructionsRoundabout) {
 
   auto from = "A";
   auto to = "B";
-  const std::string& request =
-      (boost::format(
-           R"({"locations":[{"lat":%s,"lon":%s},{"lat":%s,"lon":%s}],"costing":"auto","banner_instructions":true})") %
-       std::to_string(map.nodes.at(from).lat()) % std::to_string(map.nodes.at(from).lng()) %
-       std::to_string(map.nodes.at(to).lat()) % std::to_string(map.nodes.at(to).lng()))
-          .str();
+  const std::string& request = std::format(
+      R"({{"locations":[{{"lat":{:.6f},"lon":{:.6f}}},{{"lat":{:.6f},"lon":{:.6f}}}],"costing":"auto","banner_instructions":true}})",
+      map.nodes.at(from).lat(), map.nodes.at(from).lng(), map.nodes.at(to).lat(),
+      map.nodes.at(to).lng());
   auto result = gurka::do_action(valhalla::Options::route, map, request);
 
   auto json = gurka::convert_to_json(result, Options::Format::Options_Format_osrm);
@@ -1070,12 +1067,10 @@ protected:
   }
 
   rapidjson::Document json_request(const std::string& from, const std::string& to) {
-    const std::string& request =
-        (boost::format(
-             R"({"locations":[{"lat":%s,"lon":%s},{"lat":%s,"lon":%s}],"costing":"auto","banner_instructions":true})") %
-         std::to_string(map.nodes.at(from).lat()) % std::to_string(map.nodes.at(from).lng()) %
-         std::to_string(map.nodes.at(to).lat()) % std::to_string(map.nodes.at(to).lng()))
-            .str();
+    const std::string& request = std::format(
+        R"({{"locations":[{{"lat":{:.6f},"lon":{:.6f}}},{{"lat":{:.6f},"lon":{:.6f}}}],"costing":"auto","banner_instructions":true}})",
+        map.nodes.at(from).lat(), map.nodes.at(from).lng(), map.nodes.at(to).lat(),
+        map.nodes.at(to).lng());
     auto result = gurka::do_action(valhalla::Options::route, map, request);
     return gurka::convert_to_json(result, Options::Format::Options_Format_osrm);
   }

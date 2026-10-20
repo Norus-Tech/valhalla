@@ -5,15 +5,18 @@ set(sources
   height_action.cc
   reach.cc
   matrix_action.cc
+  admin_action.cc
   status_action.cc
   transit_available_action.cc
   polygon_search.cc
+  linear_cost_factors.cc
   isochrone_action.cc
   height_action.cc
   locate_action.cc
   node_search.cc
   route_action.cc
   search.cc
+  tile_action.cc
   trace_route_action.cc
   traffic_action.cc
   worker.cc)
@@ -24,7 +27,6 @@ set(system_includes
 
 valhalla_module(NAME loki
   SOURCES ${sources}
-  SOURCES_WITH_WARNINGS ${sources_with_warnings}
   HEADERS ${headers}
   INCLUDE_DIRECTORIES
     PUBLIC
@@ -39,7 +41,10 @@ valhalla_module(NAME loki
       ${system_includes}
     PRIVATE
       ${unordered_dense_include_dir}
+      ${vtzero_include_dirs}
+      ${flatbush_include_dir}
   DEPENDS
+    valhalla::meili
     valhalla::skadi
     valhalla::sif
     valhalla::proto

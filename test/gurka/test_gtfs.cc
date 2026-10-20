@@ -2,6 +2,7 @@
 #include "baldr/rapidjson_utils.h"
 #include "gurka.h"
 #include "just_gtfs/just_gtfs.h"
+#include "midgard/boost_geom_types.h"
 #include "midgard/logging.h"
 #include "mjolnir/convert_transit.h"
 #include "mjolnir/ingest_transit.h"
@@ -9,9 +10,7 @@
 #include "proto/transit.pb.h"
 #include "test.h"
 
-#include <boost/geometry.hpp>
-#include <boost/geometry/geometries/point_xy.hpp>
-#include <boost/geometry/geometries/polygon.hpp>
+#include <boost/geometry/algorithms/within.hpp>
 #include <gtest/gtest.h>
 
 using namespace gtfs;
@@ -20,8 +19,6 @@ using namespace valhalla;
 using namespace valhalla::baldr;
 using namespace valhalla::midgard;
 using boost::geometry::within;
-using point_type = boost::geometry::model::d2::point_xy<double>;
-using polygon_type = boost::geometry::model::polygon<point_type>;
 using rp = rapidjson::Pointer;
 
 // since writing GTFS feeds with C++ is sooo annoying, we'll have some var templates, e.g.
@@ -78,7 +75,6 @@ date::local_seconds parse_date_time_string(const std::string& date_time) {
   std::istringstream in{date_time};
   date::local_seconds tp;
   in >> date::parse("%Y%m%d", tp);
-
   return tp;
 }
 
@@ -163,7 +159,7 @@ boost::property_tree::ptree get_config() {
                             {"mjolnir.hierarchy", "1"},
                             {"mjolnir.timezone", VALHALLA_BUILD_DIR "test/data/tz.sqlite"},
                             {"mjolnir.tile_dir", VALHALLA_BUILD_DIR "test/data/transit_tests/tiles"},
-                            {"service_limits.pedestrian.max_transit_walking_distance", "100000"}});
+                            {"service_limits.pedestrian.max_multimodal_walking_distance", "100000"}});
 }
 
 // put the base in toronto for timezone stuff to work and put it on the edge of a level 2/3 tile
@@ -217,8 +213,8 @@ TEST(GtfsExample, WriteGtfs) {
   ttc2.agency_timezone = "America/Toronto";
   f2.add_agency(ttc2);
 
-  f1.write_agencies(f1_path);
-  f2.write_agencies(f2_path);
+  f1.write_agencies(f1_path.string());
+  f2.write_agencies(f2_path.string());
 
   // write stops.txt:
   // 1st has all stop objects, egress/station/platform
@@ -307,8 +303,8 @@ TEST(GtfsExample, WriteGtfs) {
   p4.wheelchair_boarding = "1";
   f2.add_stop(p4);
 
-  f1.write_stops(f1_path);
-  f2.write_stops(f2_path);
+  f1.write_stops(f1_path.string());
+  f2.write_stops(f2_path.string());
 
   // write routes.txt
   struct Route r1;
@@ -333,8 +329,8 @@ TEST(GtfsExample, WriteGtfs) {
   r2.route_text_color = "001100";
   f2.add_route(r2);
 
-  f1.write_routes(f1_path);
-  f2.write_routes(f2_path);
+  f1.write_routes(f1_path.string());
+  f2.write_routes(f2_path.string());
 
   // write trips.txt
   struct gtfs::Trip t1;
@@ -376,8 +372,8 @@ TEST(GtfsExample, WriteGtfs) {
   t4.bikes_allowed = gtfs::TripAccess::No;
   f2.add_trip(t4);
 
-  f1.write_trips(f1_path);
-  f2.write_trips(f2_path);
+  f1.write_trips(f1_path.string());
+  f2.write_trips(f2_path.string());
 
   // write stop_times.txt
   struct StopTime t1p1;
@@ -486,8 +482,8 @@ TEST(GtfsExample, WriteGtfs) {
   t3p4.timepoint = gtfs::StopTimePoint::Exact;
   f2.add_stop_time(t3p4);
 
-  f1.write_stop_times(f1_path);
-  f2.write_stop_times(f2_path);
+  f1.write_stop_times(f1_path.string());
+  f2.write_stop_times(f2_path.string());
 
   // write calendar.txt
   struct CalendarItem c1;
@@ -531,8 +527,8 @@ TEST(GtfsExample, WriteGtfs) {
   c3.end_date = Date(sv_end);
   f2.add_calendar_item(c3);
 
-  f1.write_calendar(f1_path);
-  f2.write_calendar(f2_path);
+  f1.write_calendar(f1_path.string());
+  f2.write_calendar(f2_path.string());
 
   // write calendar_dates.txt
   struct CalendarDate servAdded;
@@ -547,7 +543,7 @@ TEST(GtfsExample, WriteGtfs) {
 
   f1.add_calendar_date(servAdded);
   f1.add_calendar_date(servRemoved);
-  f1.write_calendar_dates(f1_path);
+  f1.write_calendar_dates(f1_path.string());
 
   // write shapes.txt
   // TODO: write shapes before stop_times so that we can determine the correct travelled distance
@@ -560,7 +556,7 @@ TEST(GtfsExample, WriteGtfs) {
     sp.shape_pt_sequence = f1.get_shapes().size();
     f1.add_shape(sp);
   }
-  f1.write_shapes(f1_path);
+  f1.write_shapes(f1_path.string());
 
   // write frequencies.txt
   struct Frequency freqBased;
@@ -579,10 +575,10 @@ TEST(GtfsExample, WriteGtfs) {
 
   f1.add_frequency(freqBased);
   f1.add_frequency(schedBased);
-  f1.write_frequencies(f1_path);
+  f1.write_frequencies(f1_path.string());
 
-  Feed f1_reader(f1_path);
-  Feed f2_reader(f2_path);
+  Feed f1_reader(f1_path.string());
+  Feed f2_reader(f2_path.string());
   f1_reader.read_feed();
   f2_reader.read_feed();
 
@@ -681,17 +677,7 @@ TEST(GtfsExample, MakeProto) {
   std::vector<float> first_origin_dist_traveled;
   std::vector<float> last_dest_dist_traveled;
 
-  // get the full shape length
-  float shape_length = 0;
-
   auto layout = create_layout();
-  const std::vector<PointLL> transit_lls{layout["1"], layout["a"], layout["b"],
-                                         layout["2"], layout["c"], layout["3"]};
-  for (uint32_t segment = 0; segment < transit_lls.size() - 1; segment++) {
-    auto currOrigin = transit_lls[segment];
-    auto currDest = transit_lls[segment + 1];
-    shape_length += currOrigin.Distance(currDest);
-  }
 
   size_t shapes = 0;
   // for each pbf.
@@ -868,6 +854,8 @@ TEST(GtfsExample, MakeTile) {
     }
     for (const auto& edge : tile->GetDirectedEdges()) {
       uses[edge.use()]++;
+      // nothing here was built with elevation, so every edge has to carry the no-data sentinel
+      EXPECT_EQ(tile->edgeinfo(&edge).mean_elevation(), kNoElevationData);
       if (edge.use() == Use::kTransitConnection) {
         EXPECT_TRUE((edge.forwardaccess() & kPedestrianAccess) ||
                     (edge.reverseaccess() & kPedestrianAccess));
@@ -963,6 +951,17 @@ TEST(GtfsExample, MakeTile) {
   EXPECT_EQ(uses[Use::kRail], 3);
 }
 
+TEST(GtfsExample, bicycle_locate) {
+  std::string response;
+  gurka::do_action(valhalla::Options::locate, map, {"1"}, "bicycle", {}, {}, &response);
+
+  rapidjson::Document json;
+  json.Parse(response);
+  ASSERT_FALSE(json.HasParseError());
+  ASSERT_TRUE(json.IsArray());
+  EXPECT_EQ(json.Size(), 1);
+}
+
 TEST(GtfsExample, route_trip1) {
   // here we request with tmrw 05:50 am
   const auto tmrw_time =
@@ -985,7 +984,7 @@ TEST(GtfsExample, route_trip1) {
   EXPECT_EQ(res.directions().routes(0).legs().size(), 1);
 
   const auto& leg = res.directions().routes(0).legs(0);
-  EXPECT_NEAR(leg.summary().length(), 41.033, 0.001);
+  EXPECT_NEAR(leg.summary().length(), 41.036, 0.001);
   EXPECT_EQ(leg.maneuver(0).type(), DirectionsLeg_Maneuver_Type_kStart);
   EXPECT_EQ(leg.maneuver(1).type(), DirectionsLeg_Maneuver_Type_kTransitConnectionStart);
   EXPECT_EQ(leg.maneuver(2).type(), DirectionsLeg_Maneuver_Type_kTransit);
@@ -1010,8 +1009,8 @@ TEST(GtfsExample, route_trip1) {
   EXPECT_EQ(res_doc["trip"]["legs"].GetArray().Size(), 1);
 
   const auto& leg_json = res_doc["trip"]["legs"].GetArray()[0];
-  EXPECT_NEAR(leg_json["summary"]["time"].GetDouble(), 8769.058, 0.001);
-  EXPECT_NEAR(leg_json["summary"]["length"].GetDouble(), 41.033, 0.001);
+  EXPECT_NEAR(leg_json["summary"]["time"].GetDouble(), 8770.470, 0.001);
+  EXPECT_NEAR(leg_json["summary"]["length"].GetDouble(), 41.036, 0.001);
   EXPECT_EQ(leg_json["maneuvers"][0]["type"].GetUint(),
             static_cast<uint32_t>(DirectionsLeg::Maneuver::kStart));
   EXPECT_EQ(leg_json["maneuvers"][1]["type"].GetUint(),
@@ -1062,8 +1061,8 @@ TEST(GtfsExample, route_trip4) {
 
   // test the PBF output
   const auto& leg = res.directions().routes(0).legs(0);
-  EXPECT_NEAR(leg.summary().time(), 8529.033, 0.001);
-  EXPECT_NEAR(leg.summary().length(), 16.112, 0.001);
+  EXPECT_NEAR(leg.summary().time(), 8530.445, 0.001);
+  EXPECT_NEAR(leg.summary().length(), 16.115, 0.001);
 
   const auto& transit_info = leg.maneuver(2).transit_info();
   EXPECT_EQ(transit_info.transit_stops(0).departure_date_time(), "2023-02-27T23:58-05:00");
@@ -1074,13 +1073,8 @@ TEST(GtfsExample, route_trip4) {
 
 TEST(GtfsExample, isochrones) {
 
-  auto WaypointToBoostPoint = [&](const std::string& waypoint) {
-    auto point = map.nodes[waypoint];
-    return point_type(point.x(), point.y());
-  };
-
   std::string res_string;
-  valhalla::Api res =
+  [[maybe_unused]] valhalla::Api res =
       gurka::do_action(valhalla::Options::isochrone, map, {"g"}, "multimodal",
                        {{"/date_time/type", "1"},
                         {"/date_time/value", "2023-02-27T04:58"},
@@ -1089,22 +1083,23 @@ TEST(GtfsExample, isochrones) {
                        {}, &res_string);
 
   std::vector<PointLL> iso_polygon = polygon_from_geojson(res_string);
-  polygon_type polygon;
+  bg::polygon_ll_t polygon;
   for (const auto& p : iso_polygon) {
-    boost::geometry::append(polygon.outer(), point_type(p.x(), p.y()));
+    boost::geometry::append(polygon.outer(), p);
   }
 
-  EXPECT_EQ(within(WaypointToBoostPoint("D"), polygon), true);
-  EXPECT_EQ(within(WaypointToBoostPoint("2"), polygon), true);
-  EXPECT_EQ(within(WaypointToBoostPoint("E"), polygon), true);
-  EXPECT_EQ(within(WaypointToBoostPoint("4"), polygon), true);
-  EXPECT_EQ(within(WaypointToBoostPoint("F"), polygon), true);
-  EXPECT_EQ(within(WaypointToBoostPoint("1"), polygon), false);
+  EXPECT_EQ(within(map.nodes["D"], polygon), true);
+  EXPECT_EQ(within(map.nodes["2"], polygon), true);
+  EXPECT_EQ(within(map.nodes["E"], polygon), true);
+  EXPECT_EQ(within(map.nodes["4"], polygon), true);
+  EXPECT_EQ(within(map.nodes["F"], polygon), true);
+  EXPECT_EQ(within(map.nodes["1"], polygon), false);
 }
 
 TEST(GtfsExample, status) {
   std::string req = R"({"verbose": true})";
   std::string res_string;
-  valhalla::Api res = gurka::do_action(valhalla::Options::status, map, req, {}, &res_string);
+  [[maybe_unused]] valhalla::Api res =
+      gurka::do_action(valhalla::Options::status, map, req, {}, &res_string);
   EXPECT_NE(res_string.find(R"("has_transit_tiles":true)"), std::string::npos);
 }

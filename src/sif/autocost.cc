@@ -449,7 +449,7 @@ bool AutoCost::AllowedReverse(const baldr::DirectedEdge* edge,
       (!allow_destination_only_ && !pred.destonly() && opp_edge->destonly()) ||
       (pred.closure_pruning() && IsClosed(opp_edge, tile)) ||
       (exclude_unpaved_ && !pred.unpaved() && opp_edge->unpaved()) || !IsHOVAllowed(opp_edge) ||
-      CheckExclusions<false>(opp_edge, pred) || isFiltered(edge, tile)) {
+      CheckExclusions<false>(opp_edge, pred) || isFiltered(opp_edge, tile)) {
     return false;
   }
 

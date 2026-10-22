@@ -138,23 +138,12 @@ public:
       // TODO: error
       return;
     }
-    // LOG_INFO("topbf filter: " + iter->first + ", " + iter->second.data());
     filter->set_tag(iter->second.data());
     std::advance(iter, 1);
 
-    // auto value = expression.get_optional<std::string>(iter->first);
-    // if (value && !value->empty()) {
-    //   LOG_INFO("topbf value: " + *value);
-    //   auto* child = filter->mutable_children()->Add();
-    //   child->set_tag(*value);
-    //   return;
-    // }
-
     for(; iter != end; iter++) {
-      // LOG_INFO("topbf iter: " + iter->first + ", " + iter->second.data());
       const auto value = iter->second.data();
       auto* child = filter->mutable_children()->Add();
-      // auto value = expression.get_optional<std::string>(iter->first);
       if (!value.empty()) {
         child->set_tag("literal");
         child->set_data(value);
@@ -215,9 +204,9 @@ public:
         }
       }
       if (kv.second.has_filter()) {
-        LOG_WARN("Parsed filter for '" + name + "'");
+        LOG_DEBUG("Parsed filter for '" + name + "'");
       } else {
-        LOG_WARN("Costing '" + name + "' has no filter");
+        LOG_DEBUG("Costing '" + name + "' has no filter");
       }
     }
   }

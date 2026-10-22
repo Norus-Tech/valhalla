@@ -205,10 +205,8 @@ std::string do_build(const std::string& org_id,
   // Update latest pointer and tile version
   write_s3_latest(scope_prefix, version);
 
-  // Write routing tile version (kGraphTileVersion + "-yassuh") for manifest
-  // Only written for global scope -- org builds inherit the global tile version
   if (org_id.empty()) {
-    const std::string tile_ver = std::string(VALHALLA_PRINT_VERSION) + "-yassuh";
+    const std::string tile_ver = std::string(VALHALLA_PRINT_VERSION);
     const std::string tmp_ver = "/tmp/valhalla-tile-version.txt";
     FILE* f = fopen(tmp_ver.c_str(), "w");
     if (f) { fputs(tile_ver.c_str(), f); fclose(f); }

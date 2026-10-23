@@ -146,11 +146,15 @@ void loki_worker_t::parse_costing(Api& api, bool allow_none) {
       add_warning(api, 208);
     }
   }
-  CostFilter::ParseFilters(config, options);
+  try {
+    CostFilter::ParseFilters(config, options);
+  } catch (const std::runtime_error& e) {
+    throw valhalla_exception_t{138, e.what()};
+  }
   for (auto &kv: *options.mutable_costings()) {
     const auto& name = Costing_Enum_Name(options.costing_type());
     if (!kv.second.has_filter()) {
-      LOG_WARN("After parse, no filter for '" + name + "!!");
+      LOG_DEBUG("After parse, no filter for '" + name + "'");
     }
   }
 

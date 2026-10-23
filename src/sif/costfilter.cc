@@ -255,9 +255,7 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
   const auto& tag = filter.tag();
   const auto& handler = filter_handlers.find(tag);
   if (handler == filter_handlers.cend()) {
-    LOG_WARN("No filter handler for '" + tag + "'");
-    // TODO: throw
-    return True;
+    throw std::runtime_error("No filter handler for '" + tag + "': filter is configured but references an unknown operation");
   }
   return handler->second;
 }

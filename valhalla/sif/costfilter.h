@@ -25,15 +25,16 @@ const std::unordered_map<Costing::Type, std::string> kCostingNameMapping{
     {Costing::none_, "none"},
     {Costing::bicycle, "bicycle"},
     {Costing::bus, "bus"},
-    {Costing::motor_scooter, "{Costing::motor_scooter}"},
+    {Costing::motor_scooter, "motor_scooter"},
     {Costing::multimodal, "multimodal"},
     {Costing::pedestrian, "pedestrian"},
     {Costing::transit, "transit"},
     {Costing::truck, "truck"},
     {Costing::motorcycle, "motorcycle"},
     {Costing::taxi, "taxi"},
-    {Costing::auto_,"auto"},
+    {Costing::auto_, "auto"},
     {Costing::bikeshare, "bikeshare"},
+    {Costing::auto_pedestrian, "auto_pedestrian"},
 };
 
 class CostFilter;
@@ -199,7 +200,9 @@ public:
           copy_args(kv.second);
         } else if (all_filter != nullptr) {
           LOG_DEBUG("Setting default cost filter: " + name);
-          kv.second.set_allocated_filter(all_filter);
+          auto* filter_copy = new Costing_Filter;
+          filter_copy->CopyFrom(*all_filter);
+          kv.second.set_allocated_filter(filter_copy);
           copy_args(kv.second);
         }
       }
@@ -209,6 +212,7 @@ public:
         LOG_DEBUG("Costing '" + name + "' has no filter");
       }
     }
+    delete all_filter;
   }
 
 protected:

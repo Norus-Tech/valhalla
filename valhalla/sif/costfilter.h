@@ -9,6 +9,7 @@
 
 #include <boost/property_tree/ptree.hpp>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 namespace valhalla {
@@ -139,7 +140,24 @@ public:
       // TODO: error
       return;
     }
-    filter->set_tag(iter->second.data());
+    const auto tag = iter->second.data();
+    // Validate the operation tag eagerly so a bad filter config surfaces as
+    // error 138 (filter_parse_failed) at parse time rather than being caught
+    // later during costing construction and mis-reported as error 125.
+    // Literal nodes (has_data()) are handled separately in get_filter_handler
+    // and don't require a tag lookup, so skip validation for them.
+    if (!filter->has_data()) {
+      static const std::unordered_set<std::string> kValidTags = {
+        "true", "false", "literal", "or", "and", "not", "!", "==", "eq",
+        "request", "get", "contains",
+      };
+      if (kValidTags.find(tag) == kValidTags.cend()) {
+        throw std::runtime_error(
+          "Unknown filter operation '" + tag + "'!"
+        );
+      }
+    }
+    filter->set_tag(tag);
     std::advance(iter, 1);
 
     for(; iter != end; iter++) {

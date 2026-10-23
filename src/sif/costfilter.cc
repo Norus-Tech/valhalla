@@ -255,6 +255,8 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
   const auto& tag = filter.tag();
   const auto& handler = filter_handlers.find(tag);
   if (handler == filter_handlers.cend()) {
+    // Should not reach here -- ToPBF validates tags at parse time.
+    // If it does, the filter config was modified after parsing.
     throw std::runtime_error("No filter handler for '" + tag + "': filter is configured but references an unknown operation");
   }
   return handler->second;

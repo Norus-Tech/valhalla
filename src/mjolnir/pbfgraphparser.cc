@@ -1977,7 +1977,6 @@ struct graph_parser {
     };
     tag_handlers_["lit"] = [this]() { way_.set_lit(tag_.second == "true" ? true : false); };
     tag_handlers_["custom_attributes"] = [this]() {
-      LOG_INFO("in tag_handlers_['custom_attributes'](): " + tag_.second);
       way_.set_custom_attributes_index(osmdata_.name_offset_map.index(tag_.second));
     };
   }

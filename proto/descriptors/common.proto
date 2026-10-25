@@ -365,7 +365,8 @@ message TaggedValue {
     kLandmark = 6;
     kConditionalSpeedLimits = 7;
     kLevels = 8;
-    kCustomAttrs = 9;
+    kOSMNodeIds = 9;
+    kCustomAttrs = 10;
     kTunnel = 49;
     kBridge = 50;
   }

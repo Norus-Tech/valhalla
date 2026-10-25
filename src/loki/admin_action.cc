@@ -11,6 +11,7 @@
 #include <string>
 
 #include <boost/property_tree/ptree.hpp>
+#include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <thread>
@@ -126,13 +127,23 @@ std::string do_build(const std::string& org_id,
   shell_exec("aws s3 cp " + s3_pbf + " " + base_pbf);
 
   if (org_id.empty()) {
-    // Global build: apply global OSC onto base PBF
+    // Global build: apply global OSC onto base PBF if one exists, else build from base directly
     scope    = "global";
     pbf_path = "/app/valhalla/build-global.osm.pbf";
     const std::string s3_osc = s3_base + "/global/" + version + "/changes.osc";
-    shell_exec("aws s3 cp " + s3_osc + " " + osc_path);
-    shell_exec("osmium apply-changes " + base_pbf + " " + osc_path +
-               " -o " + pbf_path + " --overwrite");
+    bool has_osc = false;
+    try {
+      shell_exec("aws s3 cp " + s3_osc + " " + osc_path);
+      has_osc = true;
+    } catch (...) {
+      LOG_INFO("No global OSC found for version " + version + ", building from base PBF directly");
+    }
+    if (has_osc) {
+      shell_exec("osmium apply-changes " + base_pbf + " " + osc_path +
+                 " -o " + pbf_path + " --overwrite");
+    } else {
+      shell_exec("cp " + base_pbf + " " + pbf_path);
+    }
   } else {
     // Org build: apply org OSC onto base PBF
     scope    = "org/" + org_id;
@@ -143,25 +154,73 @@ std::string do_build(const std::string& org_id,
                " -o " + pbf_path + " --overwrite");
   }
 
-  const std::string scope_prefix  = s3_scope_prefix(s3_base, scope);
+  const std::string scope_prefix   = s3_scope_prefix(s3_base, scope);
   const std::string version_prefix = scope_prefix + "/" + version;
+  const std::string build_dir      = "/app/valhalla/build";
+  const std::string tiles_tar      = build_dir + "/tiles.tar";
+  const std::string traffic_tar    = build_dir + "/traffic.tar";
+
+  // For org builds: ensure base files exist -- if not, run a global build first
+  if (!org_id.empty()) {
+    bool base_missing = false;
+    try {
+      shell_exec("aws s3 cp " + s3_base + "/base/admins/latest /tmp/valhalla-admins-check.txt");
+    } catch (...) {
+      base_missing = true;
+    }
+    if (base_missing) {
+      LOG_INFO("Base files missing -- building admins for org build " + org_id);
+      const std::string s3_pbf   = config.get<std::string>("admin.s3_pbf_url", "");
+      const std::string base_pbf = "/app/valhalla/base.osm.pbf";
+      shell_exec("aws s3 cp " + s3_pbf + " " + base_pbf);
+      shell_exec("mkdir -p " + tile_dir);
+      shell_exec("valhalla_build_admins -c " + cfg + " " + base_pbf);
+      // Build tz_world.sqlite if not already present
+      const std::string tz_path = "/app/valhalla/tz_world.sqlite";
+      try {
+        shell_exec("test -f " + tz_path);
+      } catch (...) {
+        shell_exec("valhalla_build_timezones -c " + cfg + " > " + tz_path);
+      }
+
+      auto upload_base_file = [&](const std::string& local_path,
+                                  const std::string& name,
+                                  const std::string& ext) {
+        const std::string sha         = shell_exec("sha256sum " + local_path + " | awk '{print $1}'");
+        const std::string sha_trimmed = sha.substr(0, sha.find_first_of(" \t\n\r"));
+        const std::string s3_key      = s3_base + "/base/" + name + "/" + sha_trimmed + "." + ext;
+        const std::string latest_key  = s3_base + "/base/" + name + "/latest";
+        shell_exec("aws s3 cp " + local_path + " " + s3_key);
+        const std::string sha_file = "/tmp/valhalla-" + name + ".sha256";
+        FILE* f = fopen(sha_file.c_str(), "w");
+        if (f) { fputs(sha_trimmed.c_str(), f); fclose(f); }
+        shell_exec("aws s3 cp " + sha_file + " " + s3_key + ".sha256");
+        const std::string latest_tmp = "/tmp/valhalla-" + name + "-latest.txt";
+        FILE* lf = fopen(latest_tmp.c_str(), "w");
+        if (lf) { fputs(s3_key.c_str(), lf); fclose(lf); }
+        shell_exec("aws s3 cp " + latest_tmp + " " + latest_key);
+      };
+
+      upload_base_file("/app/valhalla/build/tiles/admins.sqlite", "admins",   "sqlite");
+      upload_base_file("/app/valhalla/tz_world.sqlite", "tz_world", "sqlite");
+    }
+  }
 
   // Build
-  const std::string build_dir = "/app/valhalla/build";
   shell_exec("rm -rf " + tile_dir + " && mkdir -p " + tile_dir);
   shell_exec("valhalla_build_admins -c " + cfg + " " + pbf_path);
-  shell_exec("valhalla_build_tiles -c " + cfg + " " + pbf_path);
+  const std::string tz_path = "/app/valhalla/tz_world.sqlite";
+  try { shell_exec("test -f " + tz_path); } catch (...) {
+    shell_exec("valhalla_build_timezones -c " + cfg + " > " + tz_path);
+  }
+  shell_exec("valhalla_build_tiles -c "  + cfg + " " + pbf_path);
   shell_exec("valhalla_build_extract -c " + cfg + " -v -t");
 
-  // Upload tiles.tar and traffic.tar directly -- no outer archive needed
-  const std::string tiles_tar   = build_dir + "/tiles.tar";
-  const std::string traffic_tar = build_dir + "/traffic.tar";
-
+  // Upload tiles.tar and traffic.tar with checksums
   auto upload_with_checksum = [&](const std::string& local,
                                   const std::string& s3_dest) {
     shell_exec("aws s3 cp " + local + " " + s3_dest);
-    const std::string sha = shell_exec(
-        "sha256sum " + local + " | awk '{print $1}'");
+    const std::string sha      = shell_exec("sha256sum " + local + " | awk '{print $1}'");
     const std::string sha_file = local + ".sha256";
     FILE* f = fopen(sha_file.c_str(), "w");
     if (f) { fputs(sha.c_str(), f); fclose(f); }
@@ -176,42 +235,39 @@ std::string do_build(const std::string& org_id,
     auto upload_base_file = [&](const std::string& local_path,
                                 const std::string& name,
                                 const std::string& ext) {
-      // Compute sha256
-      const std::string sha = shell_exec(
-          "sha256sum " + local_path + " | awk '{print $1}'");
+      const std::string sha         = shell_exec("sha256sum " + local_path + " | awk '{print $1}'");
       const std::string sha_trimmed = sha.substr(0, sha.find_first_of(" \t\n\r"));
-      const std::string s3_key = s3_base + "/downloads/base/" + name + "/"
-                                 + sha_trimmed + "." + ext;
-      const std::string latest_key = s3_base + "/downloads/base/" + name + "/latest";
+      const std::string s3_key      = s3_base + "/base/" + name + "/" + sha_trimmed + "." + ext;
+      const std::string latest_key  = s3_base + "/base/" + name + "/latest";
 
-      // Upload file and sidecar
       shell_exec("aws s3 cp " + local_path + " " + s3_key);
       const std::string sha_file = "/tmp/valhalla-" + name + ".sha256";
       FILE* f = fopen(sha_file.c_str(), "w");
       if (f) { fputs(sha_trimmed.c_str(), f); fclose(f); }
       shell_exec("aws s3 cp " + sha_file + " " + s3_key + ".sha256");
 
-      // Update latest pointer
       const std::string latest_tmp = "/tmp/valhalla-" + name + "-latest.txt";
       FILE* lf = fopen(latest_tmp.c_str(), "w");
       if (lf) { fputs(s3_key.c_str(), lf); fclose(lf); }
       shell_exec("aws s3 cp " + latest_tmp + " " + latest_key);
     };
 
-    upload_base_file(tile_dir + "/admins.sqlite", "admins", "sqlite");
+    upload_base_file("/app/valhalla/build/tiles/admins.sqlite", "admins",   "sqlite");
     upload_base_file("/app/valhalla/tz_world.sqlite", "tz_world", "sqlite");
   }
 
-  // Update latest pointer and tile version
-  write_s3_latest(scope_prefix, version);
-
+  // Write tile_version per-bundle and update latest pointer
+  const std::string tile_ver = std::string(VALHALLA_PRINT_VERSION);
+  const std::string tmp_ver  = "/tmp/valhalla-tile-version.txt";
+  FILE* tvf = fopen(tmp_ver.c_str(), "w");
+  if (tvf) { fputs(tile_ver.c_str(), tvf); fclose(tvf); }
+  shell_exec("aws s3 cp " + tmp_ver + " " + version_prefix + "/tile_version");
   if (org_id.empty()) {
-    const std::string tile_ver = std::string(VALHALLA_PRINT_VERSION);
-    const std::string tmp_ver = "/tmp/valhalla-tile-version.txt";
-    FILE* f = fopen(tmp_ver.c_str(), "w");
-    if (f) { fputs(tile_ver.c_str(), f); fclose(f); }
+    // Keep global/tile_version in sync for backwards compat
     shell_exec("aws s3 cp " + tmp_ver + " " + s3_base + "/global/tile_version");
   }
+
+  write_s3_latest(scope_prefix, version);
 
   // Cleanup
   shell_exec("rm -rf " + build_dir);
@@ -323,20 +379,92 @@ std::string loki_worker_t::admin(Api& request) {
 
     LOG_INFO("Admin action: " + sub_action);
 
+    auto& registry = BuildRegistry::instance();
+
     if (sub_action == "build" || sub_action == "build_global") {
       const std::string build_type = (sub_action == "build_global" || org_id_arg.empty())
           ? "global" : "org";
       const std::string version = version_arg.empty() ? make_version(config) : version_arg;
-      ActiveBuild::instance().start(build_type, org_id_arg);
-      std::thread([this, oid = org_id_arg, ver = version]() {
+      const std::string job_id  = registry.submit(build_type, org_id_arg);
+
+      std::thread([this, oid = org_id_arg, ver = version, jid = job_id]() {
+        auto& reg = BuildRegistry::instance();
+        reg.start(jid);
         try {
           do_build(oid, ver, config);
+          reg.finish(jid);
         } catch (const std::exception& e) {
-          LOG_ERROR("Admin build failed: " + std::string(e.what()));
+          const std::string err = e.what();
+          LOG_ERROR("Admin build failed: " + err);
+          reg.finish(jid, err);
         }
-        ActiveBuild::instance().clear();
       }).detach();
-      return json_ok("build started: " + version);
+
+      // Return job_id so callers can poll by ID
+      rapidjson::Document d;
+      d.SetObject();
+      auto& a = d.GetAllocator();
+      d.AddMember("status",  rapidjson::Value("ok", a),              a);
+      d.AddMember("job_id",  rapidjson::Value(job_id.c_str(), a),    a);
+      d.AddMember("version", rapidjson::Value(version.c_str(), a),   a);
+      rapidjson::StringBuffer sb; rapidjson::Writer<rapidjson::StringBuffer> w(sb);
+      d.Accept(w);
+      return sb.GetString();
+
+    } else if (sub_action == "status") {
+      // admin status?job_id=<id> -- or list all if omitted
+      std::string job_id_arg;
+      auto jit = args.find("job_id");
+      if (jit != args.end()) job_id_arg = jit->second;
+
+      if (!job_id_arg.empty()) {
+        const BuildJob job = registry.get(job_id_arg);
+        if (job.id.empty()) return json_error("job not found: " + job_id_arg);
+        rapidjson::Document d; d.SetObject(); auto& a = d.GetAllocator();
+        d.AddMember("job_id",      rapidjson::Value(job.id.c_str(), a),                    a);
+        d.AddMember("type",        rapidjson::Value(job.type.c_str(), a),                   a);
+        d.AddMember("org_id",      rapidjson::Value(job.org_id.c_str(), a),                 a);
+        d.AddMember("status",      rapidjson::Value(build_status_str(job.status).c_str(), a), a);
+        d.AddMember("error",       rapidjson::Value(job.error.c_str(), a),                  a);
+        d.AddMember("created_at",  rapidjson::Value(job.created_ts()),                       a);
+        d.AddMember("started_at",  rapidjson::Value(job.started_ts()),                       a);
+        d.AddMember("finished_at", rapidjson::Value(job.finished_ts()),                      a);
+        rapidjson::StringBuffer sb; rapidjson::Writer<rapidjson::StringBuffer> w(sb);
+        d.Accept(w); return sb.GetString();
+      }
+
+      // No job_id -- fall through to list
+      const auto jobs = registry.list();
+      rapidjson::Document d; d.SetObject(); auto& a = d.GetAllocator();
+      rapidjson::Value arr(rapidjson::kArrayType);
+      for (const auto& job : jobs) {
+        rapidjson::Value obj(rapidjson::kObjectType);
+        obj.AddMember("job_id",      rapidjson::Value(job.id.c_str(), a),                    a);
+        obj.AddMember("type",        rapidjson::Value(job.type.c_str(), a),                   a);
+        obj.AddMember("org_id",      rapidjson::Value(job.org_id.c_str(), a),                 a);
+        obj.AddMember("status",      rapidjson::Value(build_status_str(job.status).c_str(), a), a);
+        obj.AddMember("error",       rapidjson::Value(job.error.c_str(), a),                  a);
+        obj.AddMember("created_at",  rapidjson::Value(job.created_ts()),                       a);
+        obj.AddMember("finished_at", rapidjson::Value(job.finished_ts()),                      a);
+        arr.PushBack(obj, a);
+      }
+      d.AddMember("jobs", arr, a);
+      rapidjson::StringBuffer sb; rapidjson::Writer<rapidjson::StringBuffer> w(sb);
+      d.Accept(w); return sb.GetString();
+
+    } else if (sub_action == "prune") {
+      int max_age = 3600;
+      auto age_it = args.find("max_age");
+      if (age_it != args.end()) {
+        try { max_age = std::stoi(age_it->second); } catch (...) {}
+      }
+      const int pruned = registry.prune(max_age);
+      rapidjson::Document d; d.SetObject(); auto& a = d.GetAllocator();
+      d.AddMember("status",  rapidjson::Value("ok", a), a);
+      d.AddMember("pruned",  rapidjson::Value(pruned),  a);
+      rapidjson::StringBuffer sb; rapidjson::Writer<rapidjson::StringBuffer> w(sb);
+      d.Accept(w); return sb.GetString();
+
     } else if (sub_action == "terminate") {
       return do_terminate();
     } else if (sub_action == "restart") {

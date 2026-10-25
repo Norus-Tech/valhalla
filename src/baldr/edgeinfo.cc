@@ -119,6 +119,7 @@ size_t EdgeInfo::TaggedValueSize(const char* ptr) {
     case TaggedValue::kLevelRef:
     case TaggedValue::kTunnel:
     case TaggedValue::kBridge:
+    case TaggedValue::kLinguistic:
       // These are null-terminated strings after the tag byte
       return strlen(ptr) + 1; // +1 for null terminator
 

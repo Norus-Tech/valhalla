@@ -253,6 +253,10 @@ FilterFactory get_filter_handler(const Costing_Filter& filter) {
     return Literal;
   }
   const auto& tag = filter.tag();
+  // Empty tag means no filter was configured for this costing -- treat as True (unfiltered).
+  if (tag.empty()) {
+    return True;
+  }
   const auto& handler = filter_handlers.find(tag);
   if (handler == filter_handlers.cend()) {
     // Should not reach here -- ToPBF validates tags at parse time.

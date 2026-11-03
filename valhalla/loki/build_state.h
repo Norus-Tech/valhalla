@@ -32,16 +32,16 @@ struct BuildJob {
   std::chrono::system_clock::time_point finished_at;
 
   // Seconds since epoch helpers for JSON serialisation
-  long created_ts() const {
+  int64_t created_ts() const {
     return std::chrono::duration_cast<std::chrono::seconds>(
         created_at.time_since_epoch()).count();
   }
-  long started_ts() const {
+  int64_t started_ts() const {
     return status == BuildStatus::pending ? 0 :
         std::chrono::duration_cast<std::chrono::seconds>(
             started_at.time_since_epoch()).count();
   }
-  long finished_ts() const {
+  int64_t finished_ts() const {
     return (status == BuildStatus::success || status == BuildStatus::failed) ?
         std::chrono::duration_cast<std::chrono::seconds>(
             finished_at.time_since_epoch()).count() : 0;
